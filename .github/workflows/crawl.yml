@@ -25,6 +25,9 @@ jobs:
       - name: Run crawler
         run: python app.py   # uses config.yaml by default
 
+      - name: Build news index (dates.json) + latest.json
+        run: python scripts/build_index.py
+
       - name: Ensure output dir
         run: mkdir -p docs/news
 
