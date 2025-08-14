@@ -1,0 +1,4 @@
+sources:
+  - name: "Vietstock - Cổ phiếu"
+    urls:
+      - "https://vietstock.vn/830/chung-khoan/co-phieu.rss"
