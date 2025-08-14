@@ -1,0 +1,36 @@
+- name: Build news index (dates.json) + latest.json
+  run: |
+    mkdir -p docs/news
+    python - << 'PY'
+import os, json, glob, datetime
+base = "docs/news"
+files = [f for f in glob.glob(os.path.join(base, "*.json")) if os.path.basename(f) not in ("index.json","latest.json")]
+# Extract dates from filenames like MM-dd-YYYY.json
+def key(date_str):
+    m,d,y = map(int, date_str.split("-"))
+    return (y,m,d)
+dates = []
+for f in files:
+    name = os.path.splitext(os.path.basename(f))[0]
+    try:
+        key(name)  # validate
+        dates.append(name)
+    except Exception:
+        pass
+dates = sorted(set(dates), key=key, reverse=True)
+
+# Write index.json
+with open(os.path.join(base, "index.json"), "w", encoding="utf-8") as out:
+    json.dump({"dates": dates}, out, ensure_ascii=False, separators=(",", ":"))
+
+# Also write latest.json for a stable URL
+latest = dates[0] if dates else None
+if latest:
+    with open(os.path.join(base, f"{latest}.json"), "r", encoding="utf-8") as f:
+        data = json.load(f)
+    items = list(data.values())
+    items.sort(key=lambda x: x.get("published",""), reverse=True)
+    payload = {"generated_at": datetime.datetime.utcnow().isoformat()+"Z", "date": latest, "items": items}
+    with open(os.path.join(base, "latest.json"), "w", encoding="utf-8") as out:
+        json.dump(payload, out, ensure_ascii=False, separators=(",", ":"))
+PY
