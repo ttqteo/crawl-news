@@ -3,87 +3,114 @@
 <head>
 <meta charset="UTF-8">
 <title>Finance News Archive</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    h1 { font-size: 1.5em; }
-    select { padding: 4px; }
-    .news-item { border-bottom: 1px solid #ccc; padding: 10px 0; }
-    .news-item img { max-width: 120px; max-height: 90px; margin-right: 10px; }
-    .news-content { display: flex; align-items: flex-start; }
-    .news-meta { font-size: 0.85em; color: #555; margin-top: 5px; }
+  body { font-family: system-ui, Arial, sans-serif; margin: 20px; }
+  h1 { font-size: 1.4rem; margin-bottom: 0.5rem; }
+  .controls { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; }
+  select, button { padding: 6px 8px; }
+  .news-item { border-bottom: 1px solid #e5e7eb; padding: 10px 0; }
+  .news-content { display: flex; gap: 10px; align-items: flex-start; }
+  .thumb { width: 120px; height: 90px; object-fit: cover; border-radius: 6px; background:#f3f4f6; }
+  .title { font-weight: 600; text-decoration: none; color: #111827; }
+  .title:hover { text-decoration: underline; }
+  .meta { color: #6b7280; font-size: 0.88rem; margin-top: 4px; }
+  #status { color:#6b7280; margin-bottom:8px; }
 </style>
 </head>
 <body>
 
 <h1>Finance News Archive</h1>
-
-<label for="dateSelect">Select date:</label>
-<select id="dateSelect"></select>
-
+<div class="controls">
+  <label for="dateSelect">Date:</label>
+  <select id="dateSelect"></select>
+  <button id="btnLatest" type="button">Go to latest</button>
+</div>
+<div id="status"></div>
 <div id="newsList"></div>
 
 <script>
-// List of available dates (you can update this manually or generate it)
-const availableDates = [
-    "08-14-2025",
-    "08-13-2025"
-    // Add more dates here as they are created
-];
+const dateSelect = document.getElementById('dateSelect');
+const newsList   = document.getElementById('newsList');
+const statusEl   = document.getElementById('status');
+const btnLatest  = document.getElementById('btnLatest');
 
-// Populate dropdown
-const select = document.getElementById("dateSelect");
-availableDates.forEach(date => {
-    const opt = document.createElement("option");
-    opt.value = date;
-    opt.textContent = date;
-    select.appendChild(opt);
-});
+async function fetchJSON(url) {
+  const res = await fetch(url, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+  return res.json();
+}
 
-// Fetch and display news for a given date
-async function loadNews(date) {
-    const newsList = document.getElementById("newsList");
-    newsList.innerHTML = "Loading...";
-    try {
-        const res = await fetch(`news/${date}.json`);
-        if (!res.ok) throw new Error("HTTP " + res.status);
-        const data = await res.json();
+async function loadIndex() {
+  statusEl.textContent = 'Loading dates…';
+  const idx = await fetchJSON('news/index.json'); // { dates: ["MM-dd-YYYY", ...] }
+  const dates = Array.isArray(idx.dates) ? idx.dates : [];
+  dateSelect.innerHTML = '';
+  dates.forEach(d => {
+    const opt = document.createElement('option');
+    opt.value = d;
+    opt.textContent = d;
+    dateSelect.appendChild(opt);
+  });
+  statusEl.textContent = dates.length ? `Found ${dates.length} day(s)` : 'No dates found';
+  if (dates.length) {
+    dateSelect.value = dates[0];    // pick latest
+    await loadDay(dates[0]);
+  } else {
+    newsList.innerHTML = '';
+  }
+}
 
-        // Our JSON is a dict keyed by item_id
-        const items = Object.values(data)
-            .sort((a, b) => new Date(b.published) - new Date(a.published));
-
-        newsList.innerHTML = "";
-        items.forEach(item => {
-            const div = document.createElement("div");
-            div.className = "news-item";
-            div.innerHTML = `
-                <div class="news-content">
-                    ${item.image ? `<img src="${item.image}" alt="">` : ""}
-                    <div>
-                        <a href="${item.link}" target="_blank">${item.title}</a>
-                        <div class="news-meta">
-                            ${item.source} | ${new Date(item.published).toLocaleString()}
-                        </div>
-                    </div>
-                </div>
-            `;
-            newsList.appendChild(div);
-        });
-    } catch (err) {
-        newsList.innerHTML = `<p style="color:red;">Error loading news: ${err.message}</p>`;
+async function loadDay(dateStr) {
+  statusEl.textContent = `Loading ${dateStr}…`;
+  newsList.innerHTML = '';
+  try {
+    const data = await fetchJSON(`news/${dateStr}.json`);
+    const items = Object.values(data).sort((a,b)=> (a.published < b.published ? 1 : -1));
+    if (!items.length) {
+      newsList.innerHTML = '<p>No items for this date.</p>';
+      statusEl.textContent = 'Done';
+      return;
     }
+    const frag = document.createDocumentFragment();
+    items.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'news-item';
+      const imgHTML = item.image ? `<img class="thumb" src="${item.image}" alt="">` : '';
+      const dt = new Date(item.published);
+      div.innerHTML = `
+        <div class="news-content">
+          ${imgHTML}
+          <div>
+            <a class="title" href="${item.link}" target="_blank" rel="noopener">${item.title}</a>
+            <div class="meta">${item.source} • ${dt.toLocaleString()}</div>
+          </div>
+        </div>
+      `;
+      frag.appendChild(div);
+    });
+    newsList.appendChild(frag);
+    statusEl.textContent = `Loaded ${items.length} item(s)`;
+  } catch (e) {
+    statusEl.textContent = '';
+    newsList.innerHTML = `<p style="color:#b91c1c">Error: ${e.message}</p>`;
+  }
 }
 
-// Load the most recent date on page load
-if (availableDates.length > 0) {
-    select.value = availableDates[0];
-    loadNews(select.value);
-}
-
-// Change date when dropdown changes
-select.addEventListener("change", () => {
-    loadNews(select.value);
+dateSelect.addEventListener('change', () => loadDay(dateSelect.value));
+btnLatest.addEventListener('click', async () => {
+  try {
+    const latest = await fetchJSON('news/latest.json'); // { date, items, generated_at }
+    if (latest && latest.date) {
+      dateSelect.value = latest.date;
+      await loadDay(latest.date);
+    }
+  } catch (e) {
+    alert('Cannot load latest.json yet.');
+  }
 });
+
+loadIndex();
 </script>
 
 </body>
