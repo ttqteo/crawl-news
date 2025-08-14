@@ -2,3 +2,6 @@ sources:
   - name: "Vietstock - Cổ phiếu"
     urls:
       - "https://vietstock.vn/830/chung-khoan/co-phieu.rss"
+  - name: "Vietstock - Nhận định thị trường"
+    urls:
+      - "https://vietstock.vn/1636/nhan-dinh-phan-tich/nhan-dinh-thi-truong.rss"
