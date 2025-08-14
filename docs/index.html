@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Finance News Archive</title>
+<style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    h1 { font-size: 1.5em; }
+    select { padding: 4px; }
+    .news-item { border-bottom: 1px solid #ccc; padding: 10px 0; }
+    .news-item img { max-width: 120px; max-height: 90px; margin-right: 10px; }
+    .news-content { display: flex; align-items: flex-start; }
+    .news-meta { font-size: 0.85em; color: #555; margin-top: 5px; }
+</style>
+</head>
+<body>
+
+<h1>Finance News Archive</h1>
+
+<label for="dateSelect">Select date:</label>
+<select id="dateSelect"></select>
+
+<div id="newsList"></div>
+
+<script>
+// List of available dates (you can update this manually or generate it)
+const availableDates = [
+    "08-14-2025",
+    "08-13-2025"
+    // Add more dates here as they are created
+];
+
+// Populate dropdown
+const select = document.getElementById("dateSelect");
+availableDates.forEach(date => {
+    const opt = document.createElement("option");
+    opt.value = date;
+    opt.textContent = date;
+    select.appendChild(opt);
+});
+
+// Fetch and display news for a given date
+async function loadNews(date) {
+    const newsList = document.getElementById("newsList");
+    newsList.innerHTML = "Loading...";
+    try {
+        const res = await fetch(`news/${date}.json`);
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+
+        // Our JSON is a dict keyed by item_id
+        const items = Object.values(data)
+            .sort((a, b) => new Date(b.published) - new Date(a.published));
+
+        newsList.innerHTML = "";
+        items.forEach(item => {
+            const div = document.createElement("div");
+            div.className = "news-item";
+            div.innerHTML = `
+                <div class="news-content">
+                    ${item.image ? `<img src="${item.image}" alt="">` : ""}
+                    <div>
+                        <a href="${item.link}" target="_blank">${item.title}</a>
+                        <div class="news-meta">
+                            ${item.source} | ${new Date(item.published).toLocaleString()}
+                        </div>
+                    </div>
+                </div>
+            `;
+            newsList.appendChild(div);
+        });
+    } catch (err) {
+        newsList.innerHTML = `<p style="color:red;">Error loading news: ${err.message}</p>`;
+    }
+}
+
+// Load the most recent date on page load
+if (availableDates.length > 0) {
+    select.value = availableDates[0];
+    loadNews(select.value);
+}
+
+// Change date when dropdown changes
+select.addEventListener("change", () => {
+    loadNews(select.value);
+});
+</script>
+
+</body>
+</html>
