@@ -17,6 +17,42 @@ Since this repo is public, you can fetch the JSON directly from GitHub's raw fil
 
 [https://raw.githubusercontent.com/ttqteo/crawl-news/master/docs/news/08-14-2025.json](https://raw.githubusercontent.com/ttqteo/crawl-news/master/docs/news/08-14-2025.json)
 
+## Development
+
+### Prerequisites
+- Python 3.9+
+- pip (Python package manager)
+
+### Setup
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/ttqteo/crawl-news.git
+   cd crawl-news
+   ```
+
+2. Create and activate a virtual environment:
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   ```
+
+3. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. Run the crawler:
+   ```bash
+   python app.py
+   ```
+
+### Project Structure
+
+- `app.py`: Main script for crawling news
+- `requirements.txt`: Python dependencies
+- `docs/news/`: Directory containing the crawled news in JSON format
+
 ---
 
 Copyright to @ttqteo

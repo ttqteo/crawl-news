@@ -1,4 +1,3 @@
-# --- top of file ---
 import hashlib, json, os
 from datetime import datetime, timezone
 from pathlib import Path
@@ -8,17 +7,16 @@ from bs4 import BeautifulSoup
 from dateutil import parser as dtparse
 import yaml
 
-# zoneinfo with fallback for Python < 3.9
 try:
-    from zoneinfo import ZoneInfo  # 3.9+
+    from zoneinfo import ZoneInfo  # python >= 3.9
 except ImportError:
-    from backports.zoneinfo import ZoneInfo  # 3.8
+    from backports.zoneinfo import ZoneInfo  # python < 3.9
 
 OUTPUT_DIR = Path("docs/news")
 TIMEZONE = ZoneInfo("Asia/Ho_Chi_Minh")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-def load_config(path: Path) -> List[Dict[str, Any]]:   # <-- typing.List[...] instead of list[...]
+def load_config(path: Path) -> List[Dict[str, Any]]:
     with open(path, "r", encoding="utf-8") as f:
         cfg = yaml.safe_load(f) or {}
     return cfg.get("sources", [])
@@ -48,7 +46,6 @@ def image_from_description(desc: Optional[str]) -> Optional[str]:
     return img["src"].strip() if img and img.get("src") else None
 
 def today_filename() -> Path:
-    # Vietnam-local date for filename
     today_local = datetime.now(TIMEZONE)
     return OUTPUT_DIR / f"{today_local.strftime('%m-%d-%Y')}.json"
 
@@ -72,6 +69,16 @@ def save_day(path: Path, data: Dict[str, Dict[str, Any]]) -> None:
 def sha1(s: str) -> str:
     return hashlib.sha1(s.encode("utf-8")).hexdigest()
 
+def clean_html_text(html: str) -> str:
+    """Remove HTML tags from text and clean up whitespace."""
+    if not html:
+        return ""
+    # Use BeautifulSoup to remove HTML tags
+    soup = BeautifulSoup(html, 'html.parser')
+    text = soup.get_text(separator=' ', strip=True)
+    # Clean up multiple spaces and newlines
+    return ' '.join(text.split())
+
 def crawl(config_path: str = "config.yaml") -> None:
     feeds = load_config(Path(config_path))
     out_path = today_filename()
@@ -88,6 +95,7 @@ def crawl(config_path: str = "config.yaml") -> None:
                 guid = (e.get("id") or e.get("guid") or e.get("link") or "").strip()
                 link = (e.get("link") or "").strip()
                 title = (e.get("title") or "").strip()
+                summary = clean_html_text(e.get("summary"))
                 published = parse_ts(e)
                 image = image_from_description(e.get("description"))
 
@@ -99,6 +107,7 @@ def crawl(config_path: str = "config.yaml") -> None:
                     "item_id": item_id,
                     "source": source,
                     "title": title,
+                    "summary": summary,
                     "link": link,
                     "guid": guid or link,
                     "image": image,
