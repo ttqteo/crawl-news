@@ -1,8 +1,8 @@
-name: Fetch finance RSS → JSON (public)
+name: Fetch news
 
 on:
   schedule:
-    - cron: "0 * * * *"   # every 15 minutes
+    - cron: "*/15 * * * *"   # every 15 minutes
   workflow_dispatch:
 
 jobs:
