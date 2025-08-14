@@ -2,7 +2,7 @@ name: Fetch news
 
 on:
   schedule:
-    - cron: "*/15 * * * *"   # every 15 minutes
+    - cron: "*/15 * * * *"   # every 15 minutes (UTC)
   workflow_dispatch:
 
 jobs:
@@ -17,7 +17,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.8"  # >=3.9 avoids needing backports
+          python-version: "3.11"  # modern Python; native zoneinfo
 
       - name: Install deps
         run: pip install -r requirements.txt
@@ -25,7 +25,9 @@ jobs:
       - name: Run crawler
         run: python app.py   # uses config.yaml by default
 
-      # (Optional) delete JSON files older than 30 days to keep repo small
+      - name: Ensure output dir
+        run: mkdir -p docs/news
+
       - name: Retention (30 days)
         run: |
           find docs/news -type f -name "*.json" -mtime +30 -print -delete || true
