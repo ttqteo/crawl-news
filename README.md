@@ -7,6 +7,10 @@ Currently supported:
   
 Each file contains deduplicated news items for that day.
 
+## Github Page
+
+[https://ttqteo.github.io/crawl-news/](https://ttqteo.github.io/crawl-news/)
+
 ## Accessing the data
 
 Since this repo is public, you can fetch the JSON directly from GitHub's raw file service:
