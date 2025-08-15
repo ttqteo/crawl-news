@@ -116,15 +116,38 @@ async function loadIndex(){
   const idx = await fetchJSON('news/index.json');
   const dates = idx.dates || [];
   dateSelect.innerHTML='';
-  dates.forEach(d=>{
-    const o=document.createElement('option'); o.value=d; o.textContent=d; dateSelect.appendChild(o);
+  // Add 'All' option first
+  const allOption = document.createElement('option');
+  allOption.value = 'all';
+  allOption.textContent = 'Tất cả';
+  dateSelect.appendChild(allOption);
+  
+  // Add date options
+  dates.forEach(d => {
+    const o = document.createElement('option');
+    o.value = d;
+    o.textContent = d;
+    dateSelect.appendChild(o);
   });
-  if(dates.length){ dateSelect.value = dates[0]; await loadDay(dates[0]); }
+  
+  // Set default to 'all' and load all news
+  dateSelect.value = 'all';
+  await loadDay('all');
 }
 
 async function loadDay(d){
-  const data = await fetchJSON(`news/${d}.json`);
-  allItems = Object.values(data).sort((a,b)=> new Date(b.published) - new Date(a.published));
+  if (d === 'all') {
+    // Load and combine all dates
+    const idx = await fetchJSON('news/index.json');
+    const allData = await Promise.all(
+      idx.dates.map(date => fetchJSON(`news/${date}.json`))
+    );
+    allItems = allData.flatMap(data => Object.values(data))
+      .sort((a,b) => new Date(b.published) - new Date(a.published));
+  } else {
+    const data = await fetchJSON(`news/${d}.json`);
+    allItems = Object.values(data).sort((a,b) => new Date(b.published) - new Date(a.published));
+  }
   applyFilter();
 }
 

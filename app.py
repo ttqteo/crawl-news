@@ -45,9 +45,8 @@ def image_from_description(desc: Optional[str]) -> Optional[str]:
     img = soup.find("img")
     return img["src"].strip() if img and img.get("src") else None
 
-def today_filename() -> Path:
-    today_local = datetime.now(TIMEZONE)
-    return OUTPUT_DIR / f"{today_local.strftime('%m-%d-%Y')}.json"
+def get_date_filename(date: datetime) -> Path:
+    return OUTPUT_DIR / f"{date.strftime('%m-%d-%Y')}.json"
 
 def load_day(path: Path) -> Dict[str, Dict[str, Any]]:
     if not path.exists():
@@ -81,10 +80,8 @@ def clean_html_text(html: str) -> str:
 
 def crawl(config_path: str = "config.yaml") -> None:
     feeds = load_config(Path(config_path))
-    out_path = today_filename()
-    existing = load_day(out_path)
-    seen_ids = set(existing.keys())
     added = 0
+    processed_items = 0
 
     for feed in feeds:
         source = feed["name"]
@@ -100,9 +97,16 @@ def crawl(config_path: str = "config.yaml") -> None:
                 image = image_from_description(e.get("description"))
 
                 item_id = sha1(guid or link or (source + title + published.isoformat()))
-                if item_id in seen_ids:
+                
+                # Convert published time to local timezone for grouping by date
+                published_local = published.astimezone(TIMEZONE)
+                date_path = get_date_filename(published_local)
+                
+                # Load existing items for this date
+                existing = load_day(date_path)
+                if item_id in existing:
                     continue
-
+                    
                 existing[item_id] = {
                     "item_id": item_id,
                     "source": source,
@@ -113,11 +117,16 @@ def crawl(config_path: str = "config.yaml") -> None:
                     "image": image,
                     "published": published.isoformat(),
                 }
-                seen_ids.add(item_id)
+                
+                # Save this date's items
+                save_day(date_path, existing)
                 added += 1
+                
+            processed_items += 1
+            if processed_items % 10 == 0:
+                print(f"Processed {processed_items} items...")
 
-    save_day(out_path, existing)
-    print(f"Saved: {out_path} (+{added} new items, total {len(existing)})")
+    print(f"Crawl completed. Added {added} new items across all dates.")
 
 if __name__ == "__main__":
     crawl()
