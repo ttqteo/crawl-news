@@ -1,4 +1,5 @@
 import hashlib, json, os
+from scripts.build_index import build_index
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, List, Dict, Any  # <-- use typing for 3.8
@@ -6,6 +7,7 @@ import feedparser
 from bs4 import BeautifulSoup
 from dateutil import parser as dtparse
 import yaml
+from parsers import get_parser, FeedContext
 
 try:
     from zoneinfo import ZoneInfo  # python >= 3.9
@@ -78,35 +80,48 @@ def clean_html_text(html: str) -> str:
     # Clean up multiple spaces and newlines
     return ' '.join(text.split())
 
-def crawl(config_path: str = "config.yaml") -> None:
+def crawl(config_path: str = "config.yaml", force: bool = False) -> None:
+    """
+    Crawl and process feed items.
+    
+    Args:
+        config_path: Path to the configuration file
+        force: If True, force replace existing items
+    """
     feeds = load_config(Path(config_path))
     added = 0
+    updated = 0
     processed_items = 0
 
     for feed in feeds:
         source = feed["name"]
+        source_type = feed["type"]
         urls: List[str] = feed.get("urls", [])
         for url in urls:
-            parsed = feedparser.parse(url)
-            for e in parsed.entries:
-                guid = (e.get("id") or e.get("guid") or e.get("link") or "").strip()
-                link = (e.get("link") or "").strip()
-                title = (e.get("title") or "").strip()
-                summary = clean_html_text(e.get("summary"))
-                published = parse_ts(e)
-                image = image_from_description(e.get("description"))
+            parser = get_parser(source_type)
+            ctx = FeedContext(source=source, source_type=source_type)
+
+            for item in parser.parse(url, ctx):
+                guid = (item.get("guid") or item.get("link") or "").strip()
+                link = (item.get("link") or "").strip()
+                title = (item.get("title") or "").strip()
+                summary = item.get("summary") or ""
+                published = item["published"]   # aware datetime
+                image = item.get("image")
 
                 item_id = sha1(guid or link or (source + title + published.isoformat()))
-                
-                # Convert published time to local timezone for grouping by date
+
                 published_local = published.astimezone(TIMEZONE)
                 date_path = get_date_filename(published_local)
-                
-                # Load existing items for this date
+
                 existing = load_day(date_path)
                 if item_id in existing:
-                    continue
-                    
+                    if not force:
+                        continue
+                    updated += 1
+                else:
+                    added += 1
+
                 existing[item_id] = {
                     "item_id": item_id,
                     "source": source,
@@ -117,16 +132,28 @@ def crawl(config_path: str = "config.yaml") -> None:
                     "image": image,
                     "published": published.isoformat(),
                 }
-                
-                # Save this date's items
                 save_day(date_path, existing)
-                added += 1
-                
-            processed_items += 1
-            if processed_items % 10 == 0:
-                print(f"Processed {processed_items} items...")
+                processed_items += 1
+                if processed_items % 10 == 0:
+                    print(f"Processed {processed_items} items...")
 
-    print(f"Crawl completed. Added {added} new items across all dates.")
+
+    print(f"Crawl completed. Added {added} new items and updated {updated} items across all dates.")
+    return added, updated
 
 if __name__ == "__main__":
-    crawl()
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Crawl and process news feeds.')
+    parser.add_argument('--config', type=str, default='config.yaml',
+                      help='Path to the configuration file (default: config.yaml)')
+    parser.add_argument('--force', action='store_true',
+                      help='Force update existing items')
+    
+    args = parser.parse_args()
+    crawl(config_path=args.config, force=args.force)
+    # Auto-build docs/news/index.json and latest.json
+    try:
+        build_index()
+    except Exception as e:
+        print(f"Failed to build index: {e}")

@@ -53,6 +53,19 @@ Since this repo is public, you can fetch the JSON directly from GitHub's raw fil
 - `requirements.txt`: Python dependencies
 - `docs/news/`: Directory containing the crawled news in JSON format
 
+## Usage
+
+```bash
+# Normal mode (skip existing items)
+python app.py
+
+# Force update existing items
+python app.py --force
+
+# Use a custom config file
+python app.py --config my_config.yaml --force
+```
+
 ---
 
 Copyright to @ttqteo
