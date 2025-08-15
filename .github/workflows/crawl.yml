@@ -2,7 +2,7 @@ name: Fetch news
 
 on:
   schedule:
-    - cron: "*/15 * * * *"   # every 15 minutes (UTC)
+    - cron: "0 * * * *"   # every hour (UTC)
   workflow_dispatch:
 
 jobs:
