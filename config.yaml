@@ -21,3 +21,9 @@ sources:
       - "https://markettimes.vn/rss/trang-chu"
       - "https://markettimes.vn/rss/tieu-diem"
       - "https://markettimes.vn/rss/tai-chinh"
+  - name: "Người Quan Sát"
+    type: nguoiquansat
+    urls:
+      - "https://nguoiquansat.vn/rss/chung-khoan"
+      - "https://nguoiquansat.vn/rss/chung-khoan/chuyen-dong-thi-truong"
+      - "https://nguoiquansat.vn/rss/doanh-nghiep/co-hoi-dau-tu"

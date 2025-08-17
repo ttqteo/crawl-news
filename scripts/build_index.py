@@ -48,7 +48,7 @@ def build_index(base: str = "docs/news") -> tuple[int, str | None]:
         items.sort(key=lambda x: x.get("published", ""), reverse=True)
 
         payload = {
-            "generated_at": datetime.datetime.utcnow().isoformat() + "Z",
+            "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z"),
             "date": latest,
             "items": items,
         }
