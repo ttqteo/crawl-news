@@ -3,7 +3,12 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>news crawler — @ttqteo</title>
+<title>news crawler /w @ttqteo</title>
+<link rel="icon" href="assets/images/icon.jpg" type="image/jpeg" />
+<link rel="apple-touch-icon" href="assets/images/icon.jpg" />
+<meta property="og:image" content="assets/images/icon.jpg" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:image" content="assets/images/icon.jpg" />
 <style>
   :root{
     --bg:#f8fafc; --card:#ffffff; --text:#0f172a; --muted:#475569; --muted-2:#64748b;
@@ -19,6 +24,8 @@
   a{color:inherit}
   header{position:sticky;top:0;z-index:20;background:var(--card);border-bottom:1px solid var(--border)}
   .wrap{max-width:1000px;margin:0 auto;padding:10px 14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .brand{display:flex;align-items:center;gap:8px;text-decoration:none;color:inherit}
+  .brand img{width:24px;height:24px;border-radius:6px;object-fit:cover}
   select,input,button{padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:transparent;color:var(--text)}
   button.primary{background:var(--accent);color:#fff;border:0;cursor:pointer}
   button.ghost{border-color:var(--border);cursor:pointer}
@@ -59,6 +66,14 @@
 
   /* Mobile */
   @media (max-width:640px){
+    /* Header: keep all controls on one row */
+    .wrap{flex-wrap:nowrap; gap:6px}
+    .brand img{width:20px;height:20px}
+    #searchInput{flex:1 1 auto; min-width:0}
+    #dateSelect{max-width:110px; flex:0 0 auto}
+    #viewModeSel{max-width:90px; flex:0 0 auto}
+    #themeToggle{flex:0 0 auto}
+    select,input,button{padding:6px 8px}
     .card{grid-template-columns:1fr}
     .thumb-wrap{grid-column:1/-1}
     .content,.content.full{grid-column:1/-1}
@@ -73,6 +88,9 @@
 <body>
 <header>
   <div class="wrap">
+    <a href="./" class="brand" title="Trang chủ">
+      <img src="assets/images/icon.jpg" alt="Logo" />
+    </a>
     <select id="dateSelect" title="Chọn ngày"></select>
     <button id="btnLatest" class="primary" style="display: none">Tin mới nhất</button>
     <input id="searchInput" placeholder="Tìm tiêu đề/tóm tắt…" style="flex:1" />
