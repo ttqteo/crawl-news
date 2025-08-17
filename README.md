@@ -1,12 +1,9 @@
 # News RSS Crawler
 
-This repository automatically crawls finance news from configured RSS feeds and saves them as daily JSON files.
+This repository automatically crawls finance news from configured RSS feeds and saves it as daily JSON files.
 
 Currently supported:
-- Vietstock - Cổ phiếu
-- Vietstock - Nhận định thị trường
-- Vietstock - Hoạt động kinh doanh
-- Vietstock - Ngân hàng
+- Vietstock - Cổ phiếu; Nhận định thị trường; Hoạt động kinh doanh; Ngân hàng
 - Markettimes
 - Người Quan Sát
   
