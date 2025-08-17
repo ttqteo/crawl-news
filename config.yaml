@@ -1,19 +1,10 @@
 sources:
-  - name: "Vietstock - Cổ phiếu"
+  - name: "Vietstock"
     type: vietstock
     urls:
       - "https://vietstock.vn/830/chung-khoan/co-phieu.rss"
-  - name: "Vietstock - Nhận định thị trường"
-    type: vietstock
-    urls:
       - "https://vietstock.vn/1636/nhan-dinh-phan-tich/nhan-dinh-thi-truong.rss"
-  - name: "Vietstock - Hoạt động kinh doanh"
-    type: vietstock
-    urls:
       - "https://vietstock.vn/737/doanh-nghiep/hoat-dong-kinh-doanh.rss"
-  - name: "Vietstock - Ngân hàng"
-    type: vietstock
-    urls:
       - "https://vietstock.vn/757/tai-chinh/ngan-hang.rss"
   - name: "Markettimes"
     type: markettimes
