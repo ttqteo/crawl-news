@@ -3,7 +3,12 @@
 This repository automatically crawls finance news from configured RSS feeds and saves them as daily JSON files.
 
 Currently supported:
-- Vietstock Cổ phiếu
+- Vietstock - Cổ phiếu
+- Vietstock - Nhận định thị trường
+- Vietstock - Hoạt động kinh doanh
+- Vietstock - Ngân hàng
+- Markettimes
+- Người Quan Sát
   
 Each file contains deduplicated news items for that day.
 
