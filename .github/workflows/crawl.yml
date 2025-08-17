@@ -29,18 +29,18 @@ jobs:
         run: python app.py   # uses config.yaml by default
 
       - name: Ensure output dir
-        run: mkdir -p docs/news
+        run: mkdir -p public/news
 
       - name: Retention (30 days)
         run: |
-          find docs/news -type f -name "*.json" -mtime +30 -print -delete || true
+          find public/news -type f -name "*.json" -mtime +30 -print -delete || true
 
       - name: Commit & push if changed
         run: |
           if [[ -n "$(git status --porcelain)" ]]; then
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add docs/news/*.json
+            git add public/news/*.json
             git commit -m "bot update news json"
             git push
           else

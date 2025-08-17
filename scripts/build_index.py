@@ -8,9 +8,9 @@ def parse_date(date_str: str):
     return datetime.date(y, m, d)
 
 
-def build_index(base: str = "docs/news") -> tuple[int, str | None]:
+def build_index(base: str = "public/news") -> tuple[int, str | None]:
     """
-    Build docs/news/index.json and docs/news/latest.json.
+    Build public/news/index.json and public/news/latest.json.
 
     Returns: (count_of_dates, latest_date_or_None)
     """
