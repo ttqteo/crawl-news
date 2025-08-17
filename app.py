@@ -14,7 +14,7 @@ try:
 except ImportError:
     from backports.zoneinfo import ZoneInfo  # python < 3.9
 
-OUTPUT_DIR = Path("public/news")
+OUTPUT_DIR = Path("docs/news")
 TIMEZONE = ZoneInfo("Asia/Ho_Chi_Minh")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -152,7 +152,7 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     crawl(config_path=args.config, force=args.force)
-    # Auto-build public/news/index.json and latest.json
+    # Auto-build docs/news/index.json and latest.json
     try:
         build_index()
     except Exception as e:
