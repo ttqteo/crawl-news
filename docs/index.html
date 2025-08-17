@@ -249,7 +249,7 @@ function buildRow(it) {
   const row=document.createElement('div'); 
   row.className='row'; 
   row.setAttribute('data-summary', (it.summary||'').replace(/\n/g,' ')); 
-  const tags = findSymbols(it.title + ';' + it.description).map(s=>`<span class="tag">${s}</span>`).join(''); 
+  const tags = findSymbols(it.title + ';' + it.summary).map(s=>`<span class="tag">${s}</span>`).join(''); 
   const timeStr = new Date(it.published).toLocaleTimeString('vi-VN', {hour: '2-digit', minute: '2-digit'});
   row.innerHTML = `<div class="time">${timeStr}</div><div class="title"><a href="${it.link}" target="_blank" rel="noopener">${escapeHTML(it.title)}</a></div><div class="meta"><div class="tags">${tags}</div><div class="source">${escapeHTML(it.source||'Unknown')}</div></div>`; 
   row.addEventListener('mouseenter', ()=> showPopover(row)); 
