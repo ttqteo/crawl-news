@@ -44,9 +44,14 @@
   .row .title a{color:var(--text);text-decoration:none}
   .row .title a:hover{color:var(--accent-2);text-decoration:underline}
   .row .tags{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-start}
+  /* allow wrapping container that doesn't affect desktop grid placement */
+  .row .meta{display:contents}
   .tag{border:1px solid var(--border);padding:2px 6px;border-radius:999px;font-size:.72rem;color:#1e40af;background:#eef2ff;white-space:nowrap}
   .row .source{color:var(--muted-2);text-align:right;font-size:10px;}
   .row:hover{border-color:var(--accent)}
+
+  /* Date separator when viewing all dates */
+  .date-sep{margin:16px 2px 10px 2px;color:var(--muted-2);font-weight:700;border-left:3px solid var(--border);padding-left:8px}
 
   /* Popover for summary in compact */
   .popover{position:absolute;z-index:50;max-width:560px;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px 12px;box-shadow:0 8px 30px rgba(0,0,0,.15);pointer-events:none;opacity:0;transform:translateY(4px);transition:opacity .12s ease, transform .12s ease}
@@ -57,7 +62,11 @@
     .card{grid-template-columns:1fr}
     .thumb-wrap{grid-column:1/-1}
     .content,.content.full{grid-column:1/-1}
-    .row{grid-template-columns:120px 1fr auto 120px}
+    /* Compact rows on mobile: time | title, then meta bottom-right */
+    .row{grid-template-columns:90px 1fr; align-items:start}
+    .row .time{font-size:11px}
+    .row .meta{grid-column:1/-1; display:flex; justify-content:flex-end; gap:10px; align-items:center}
+    .row .source{ text-align:right; font-size:11px }
   }
 </style>
 </head>
@@ -65,9 +74,9 @@
 <header>
   <div class="wrap">
     <select id="dateSelect" title="Chọn ngày"></select>
-    <button id="btnLatest" class="primary">Tin mới nhất</button>
+    <button id="btnLatest" class="primary" style="display: none">Tin mới nhất</button>
     <input id="searchInput" placeholder="Tìm tiêu đề/tóm tắt…" style="flex:1" />
-    <button id="btnClear" class="ghost">Xoá</button>
+    <button id="btnClear" class="ghost" style="display: none">Xoá</button>
     <select id="viewModeSel" title="Chế độ hiển thị">
       <option value="rich">Thoải Mái</option>
       <option value="compact">Gọn</option>
@@ -98,6 +107,7 @@ const state = {
   cluster: localStorage.getItem('cluster') === '1',
   timeWindow: localStorage.getItem('timeWindow') || 'all',
   viewMode: localStorage.getItem('viewMode') || 'rich',
+  groupByDate: false,
 };
 viewModeSel.value = state.viewMode;
 
@@ -161,9 +171,11 @@ function clusterByTitle(items, thr=0.62){ const clusters=[]; const used=new Arra
 // infinite scroll
 const BATCH=10; let rendered=0; let observer=null; let sentinel=null;
 function resetAndRender(){ newsList.innerHTML=''; rendered=0; if(observer){ observer.disconnect(); } observer = new IntersectionObserver((entries)=>{ if(entries.some(e=>e.isIntersecting)){ observer.unobserve(entries[0].target); renderBatch(); } }, {rootMargin:'800px'}); renderBatch(); }
-function renderBatch(){ const end=Math.min(rendered+BATCH, state.view.length); const frag=document.createDocumentFragment(); for(let i=rendered;i<end;i++){ frag.appendChild(buildNode(state.view[i])); } newsList.appendChild(frag); rendered=end; if(sentinel){ sentinel.remove(); sentinel=null; } if(rendered < state.view.length){ sentinel=document.createElement('div'); sentinel.style.height='1px'; newsList.appendChild(sentinel); observer.observe(sentinel); } }
+function renderBatch(){ const end=Math.min(rendered+BATCH, state.view.length); const frag=document.createDocumentFragment(); for(let i=rendered;i<end;i++){ frag.appendChild(buildNode(i)); } newsList.appendChild(frag); rendered=end; if(sentinel){ sentinel.remove(); sentinel=null; } if(rendered < state.view.length){ sentinel=document.createElement('div'); sentinel.style.height='1px'; newsList.appendChild(sentinel); observer.observe(sentinel); } }
 
-function buildNode(it){ return state.viewMode==='compact' ? buildRow(it) : buildCard(it); }
+function dateKeyFromTs(ts){ const d=new Date(ts); const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,'0'); const dd=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${dd}`; }
+function formatDateLabel(ts){ return new Date(ts).toLocaleDateString('vi-VN'); }
+function buildNode(i){ const it = state.view[i]; const frag=document.createDocumentFragment(); if(state.groupByDate){ const curKey = dateKeyFromTs(it.published); const prev = state.view[i-1]; const prevKey = i>0 ? dateKeyFromTs(prev.published) : null; if(i===0 || curKey!==prevKey){ const h=document.createElement('h4'); h.className='date-sep'; h.textContent = formatDateLabel(it.published); frag.appendChild(h); } } const node = state.viewMode==='compact' ? buildRow(it) : buildCard(it); frag.appendChild(node); return frag; }
 
 function buildCard(it){ const hasImg=!!it.image; const card=document.createElement('article'); card.className='card'; const left = hasImg? `<div class="thumb-wrap"><img class="thumb" loading="lazy" decoding="async" src="${it.image}" alt=""></div>` : '' ; const cls = hasImg? 'content' : 'content full'; card.innerHTML = `${left}<div class="${cls}"><h3 class="title"><a href="${it.link}" target="_blank" rel="noopener">${escapeHTML(it.title)}</a></h3><p class="summary clamp">${escapeHTML(it.summary||'')}</p><div class="meta"><span>${escapeHTML(it.source||'Unknown')}</span><span>${new Date(it.published).toLocaleString('vi-VN')}</span></div></div>`; return card; }
 
@@ -172,7 +184,7 @@ function buildRow(it) {
   row.className='row'; 
   row.setAttribute('data-summary', (it.summary||'').replace(/\n/g,' ')); 
   const tags = findSymbols(it.title + ';' + it.description).map(s=>`<span class="tag">${s}</span>`).join(''); 
-  row.innerHTML = `<div class="time">${new Date(it.published).toLocaleString('vi-VN')}</div><div class="title"><a href="${it.link}" target="_blank" rel="noopener">${escapeHTML(it.title)}</a></div><div class="tags">${tags}</div><div class="source">${escapeHTML(it.source||'Unknown')}</div>`; 
+  row.innerHTML = `<div class="time">${new Date(it.published).toLocaleString('vi-VN')}</div><div class="title"><a href="${it.link}" target="_blank" rel="noopener">${escapeHTML(it.title)}</a></div><div class="meta"><div class="tags">${tags}</div><div class="source">${escapeHTML(it.source||'Unknown')}</div></div>`; 
   row.addEventListener('mouseenter', ()=> showPopover(row)); 
   row.addEventListener('mouseleave', hidePopover); 
   return row; 
@@ -197,7 +209,7 @@ function applyFilter(){ const q = searchInput.value.trim().toLowerCase(); let ar
 
 async function loadIndex(){ await loadSymbols(); const idx = await fetchJSON('news/index.json'); const dates = idx.dates || []; dateSelect.innerHTML=''; const allOption=document.createElement('option'); allOption.value='all'; allOption.textContent='Tất cả'; dateSelect.appendChild(allOption); dates.forEach(d=>{const o=document.createElement('option');o.value=d;o.textContent=d;dateSelect.appendChild(o)}); const udate=new URLSearchParams(location.search).get('date'); dateSelect.value = udate && (udate==='all' || dates.includes(udate)) ? udate : 'all'; await loadDay(dateSelect.value); }
 
-async function loadDay(d){ if(d==='all'){ const idx = await fetchJSON('news/index.json'); const all = await Promise.all(idx.dates.map(dt=> fetchJSON('news/'+dt+'.json'))); state.items = all.flatMap(x=> Object.values(x)); } else { const data = await fetchJSON('news/'+d+'.json'); state.items = Object.values(data); } applyFilter(); }
+async function loadDay(d){ if(d==='all'){ const idx = await fetchJSON('news/index.json'); const all = await Promise.all(idx.dates.map(dt=> fetchJSON('news/'+dt+'.json'))); state.items = all.flatMap(x=> Object.values(x)); state.groupByDate = true; } else { const data = await fetchJSON('news/'+d+'.json'); state.items = Object.values(data); state.groupByDate = false; } applyFilter(); }
 
 // events
 const runFilter = debounce(applyFilter, 120);
