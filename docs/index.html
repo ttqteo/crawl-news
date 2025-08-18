@@ -119,7 +119,6 @@
     body.search-open #btnCancelSearch{ display:inline-block }
     /* hide other controls during search-open */
     body.search-open #dateSelect,
-    body.search-open #btnLatest,
     body.search-open #btnClear,
     body.search-open #viewModeSel,
     body.search-open #btnRefresh,
@@ -172,7 +171,6 @@
       <img src="assets/images/icon.jpg" alt="Logo" />
     </a>
     <select id="dateSelect" title="Chọn ngày"></select>
-    <button id="btnLatest" class="primary" style="display: none">Tin mới nhất</button>
     <input id="searchInput" placeholder="Tìm tiêu đề/tóm tắt…" style="flex:1" />
     <button id="btnCancelSearch" class="ghost" title="Đóng tìm kiếm"><i class="fa-solid fa-xmark"></i></button>
     <button id="btnClear" class="ghost" style="display: none">Xoá</button>
@@ -199,7 +197,6 @@ const PERF = {
 };
 
 const dateSelect = document.getElementById('dateSelect');
-const btnLatest  = document.getElementById('btnLatest');
 const btnSearch  = document.getElementById('btnSearch');
 const searchInput= document.getElementById('searchInput');
 const btnClear   = document.getElementById('btnClear');
@@ -340,6 +337,10 @@ function buildCard(it){
     </div>`;
   return card;
 }
+const HIGHLIGHT_TITLE = [
+  "Đọc gì trước giờ giao dịch chứng khoán",
+  "Vietstock Daily",
+]
 function buildRow(it, i){
   const row=document.createElement('div'); row.className='row';
   // For desktop popover:
@@ -354,9 +355,18 @@ function buildRow(it, i){
         <i class="fa-solid fa-circle-info"></i>
       </button>` : '';
 
+  let titleText = it.title;
+  for(const pat of HIGHLIGHT_TITLE){
+    const re = new RegExp(pat, 'i'); // case-insensitive
+    if(re.test(titleText)){
+      titleText += ' ⭐'; // add star
+      break;
+    }
+  }
+
   row.innerHTML = `
     <div class="time"><span class="t-full">${timeStr}</span><span class="t-short">${timeStr}</span></div>
-    <div class="title"><a href="${it.link}" target="_blank" rel="noopener">${escapeHTML(it.title)}</a></div>
+    <div class="title"><a href="${it.link}" target="_blank" rel="noopener">${escapeHTML(titleText)}</a></div>
     <div class="meta">
       <div class="tags">${tags}</div>
       <div class="source">${escapeHTML(it.source||'Unknown')}</div>
@@ -454,7 +464,7 @@ function canFillMore(){
 function filterPredicate(it){
   const q = (searchInput.value||'').trim().toLowerCase();
   if(q){
-    const text=(it.title+' '+(it.summary||'')).toLowerCase();
+    const text=(it.title).toLowerCase();
     if(!text.includes(q)) return false;
   }
   if(state.selectedSources.size){
@@ -595,11 +605,6 @@ dateSelect.addEventListener('change', async ()=>{
   }else{
     await loadDay(dateSelect.value);
   }
-});
-
-btnLatest.addEventListener('click', async ()=>{
-  const latest = await fetchJSON('news/latest.json');
-  if(latest && latest.date){ dateSelect.value = latest.date; await loadDay(latest.date); }
 });
 
 btnRefresh.addEventListener('click', async ()=>{
