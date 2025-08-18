@@ -4,11 +4,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable, Dict, Any, Optional, List
 from datetime import datetime, timezone
+import html
 
 import feedparser
 from bs4 import BeautifulSoup
 from dateutil import parser as dtparse
+import re
 
+BR_RE = re.compile(r'</?br\s*/?>', flags=re.I)
 
 # ---------- local utilities (self-contained to avoid circular imports) ----------
 
@@ -19,6 +22,15 @@ def _clean_html_text(html: Optional[str]) -> str:
     soup = BeautifulSoup(html, "html.parser")
     text = soup.get_text(separator=" ", strip=True)
     return " ".join(text.split())
+
+def _onecms_summary(html_in: str) -> str:
+    if not html_in:
+        return ""
+    s = html.unescape(html_in)
+    s = BR_RE.sub('\n', s)
+    # take after the first break
+    tail = s.split('\n', 1)[-1] if '\n' in s else s
+    return _clean_html_text(tail)
 
 def _image_from_html(html: Optional[str]) -> Optional[str]:
     if not html:
@@ -165,7 +177,7 @@ class NguoiQuanSatParser(BaseParser):
       - image: media:* > <img> in description > <img> in content:encoded
     """
     def parse(self, url: str, ctx: FeedContext) -> Iterable[Dict[str, Any]]:
-        parsed = feedparser.parse(url)
+        parsed = feedparser.parse(url, sanitize_html=False, resolve_relative_uris=False)
         for e in parsed.entries:
             guid = (e.get("guid") or e.get("id") or e.get("link") or "").strip()
             link = (e.get("link") or "").strip()
@@ -174,12 +186,12 @@ class NguoiQuanSatParser(BaseParser):
             content_html = _get_content_html(e)
             desc_html = e.get("summary") or e.get("description")
 
-            # summary
-            summary_text = _clean_html_text(desc_html) if desc_html else _clean_html_text(content_html)
-            # keep it concise
+            summary_src = desc_html or content_html
+            summary_text = _onecms_summary(summary_src)  # or _clean_html_text(summary_src)
             if len(summary_text) > 300:
                 summary_text = summary_text[:297].rstrip() + "..."
-
+            summary_text = summary_text.replace("]]>", "")
+            
             published = _parse_ts(e)
 
             # image
