@@ -73,6 +73,38 @@
   .popover{position:absolute;z-index:50;max-width:560px;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px 12px;box-shadow:0 8px 30px rgba(0,0,0,.15);pointer-events:none;opacity:0;transform:translateY(4px);transition:opacity .12s ease, transform .12s ease;font-size: 12px;}
   .popover.show{opacity:1;transform:translateY(0)}
 
+  /* Skeleton (shimmer) */
+  .skel-wrap{display:grid;gap:12px;margin:12px 0}
+  .skel-card{
+    display:grid; grid-template-columns:160px 1fr; gap:14px;
+    padding:14px; border:1px solid var(--border,#e5e7eb); border-radius:12px;
+  }
+  .skel-thumb, .skel-line{
+    background: linear-gradient(90deg, #e8ebef 0%, #f2f4f7 50%, #e8ebef 100%);
+    background-size: 200% 100%;
+    animation: skel-shimmer 1.1s linear infinite;
+    will-change: background-position;
+  }
+  .skel-thumb{height:96px;border-radius:8px}
+  .skel-lines{display:grid;gap:8px}
+  .skel-line{height:14px;border-radius:6px}
+  .skel-line.w60{width:60%} .skel-line.w80{width:80%} .skel-line.w40{width:40%}
+
+  .skel-row{
+    display:grid; grid-template-columns:72px 1fr 160px; gap:12px;
+    padding:10px 6px; border-bottom:1px dashed var(--border,#e5e7eb)
+  }
+
+  @keyframes skel-shimmer{
+    0%{ background-position: 200% 0; }
+    100%{ background-position: -200% 0; }
+  }
+
+  /* Respect users who prefer reduced motion */
+  @media (prefers-reduced-motion: reduce){
+    .skel-thumb, .skel-line{ animation: none; background: #eaecef; }
+  }
+
   /* Mobile */
   @media (max-width:640px){
     /* Header: keep all controls on one row */
@@ -137,7 +169,14 @@
 <div id="popover" class="popover" aria-hidden="true"></div>
 
 <script>
-// Two view modes saved in localStorage: 'rich' (default) and 'compact' (time → title → tags → source, summary on hover)
+// ==================== CONFIG & STATE ====================
+const PERF = {
+  BATCH: 20,                // items per batch
+  MAX_DOM: 120,             // cap nodes in DOM to prevent jank
+  USE_SKELETON: true,      // shimmer placeholders (off = fastest)
+  ENABLE_SYMBOLS_IN_ALL: false // symbol tagging is heavy; keep off in "all"
+};
+
 const dateSelect = document.getElementById('dateSelect');
 const btnLatest  = document.getElementById('btnLatest');
 const btnSearch  = document.getElementById('btnSearch');
@@ -151,43 +190,58 @@ const themeToggle= document.getElementById('themeToggle');
 const popover    = document.getElementById('popover');
 
 const state = {
-  items: [],
-  view: [],
+  items: [],       // single-day items
+  view: [],        // items to render
   symbols: [],
   selectedSources: new Set(JSON.parse(localStorage.getItem('srcSet')||'[]')),
   cluster: localStorage.getItem('cluster') === '1',
   timeWindow: localStorage.getItem('timeWindow') || 'all',
   viewMode: localStorage.getItem('viewMode') || 'rich',
   groupByDate: false,
+  prog: { datesQueue: [], curDate:null, curItems:[], curIdx:0, ready:false }
 };
 viewModeSel.value = state.viewMode;
 
-// theme
+// ==================== THEME ====================
 function applyTheme(mode){ document.documentElement.setAttribute('data-theme', mode); }
 function getPrefs(){ try{ return JSON.parse(localStorage.getItem('prefs')||'{}'); }catch{return {}} }
 function savePrefs(p){ localStorage.setItem('prefs', JSON.stringify(p)); }
-const prefs = getPrefs(); applyTheme(prefs.theme||'auto');
-function nextTheme(m){ return m==='auto'?'dark': m==='dark'?'light':'auto'; }
-function themeIconHTML(m){
-  // auto: half-circle, dark: moon, light: sun
-  return m==='auto'
-    ? '<i class="fa-solid fa-circle-half-stroke"></i>'
-    : (m==='dark' ? '<i class="fa-solid fa-moon"></i>' : '<i class="fa-solid fa-sun"></i>');
-}
-function refreshThemeBtn(){ const cur = document.documentElement.getAttribute('data-theme')||'auto'; themeToggle.innerHTML = themeIconHTML(cur); }
+
+// cycle only between light ↔ dark
+function nextTheme(m){ return m === 'dark' ? 'light' : 'dark'; }
+function themeIconHTML(m){ return m === 'dark'
+  ? '<i class="fa-solid fa-moon"></i>'
+  : '<i class="fa-solid fa-sun"></i>'; }
+
+// init state (default to 'dark' if nothing saved)
+const prefs = getPrefs();
+let themeState = (prefs.theme === 'light' || prefs.theme === 'dark') ? prefs.theme : 'dark';
+
+function refreshThemeBtn(){ themeToggle.innerHTML = themeIconHTML(themeState); }
+
+// apply initial
+applyTheme(themeState);
 refreshThemeBtn();
 
+// guard against ultra-fast clicks
+let themeLock = false;
 themeToggle.addEventListener('click', ()=>{
-  const cur = document.documentElement.getAttribute('data-theme')||'auto';
-  const n = nextTheme(cur); applyTheme(n); refreshThemeBtn(); savePrefs({...prefs, theme:n});
+  if (themeLock) return;
+  themeLock = true;
+
+  themeState = nextTheme(themeState);
+  applyTheme(themeState);
+  refreshThemeBtn();
+  savePrefs({ ...prefs, theme: themeState });
+
+  setTimeout(()=>{ themeLock = false; }, 120);
 });
 
-// helpers
+// ==================== HELPERS ====================
 function debounce(fn,ms){let t;return (...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms)};}
-async function fetchJSON(url){ const r = await fetch(url,{cache:'no-store'}); if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); }
 function escapeHTML(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;'); }
-
-// symbols (optional)
+function dateKeyFromTs(ts){ const d=new Date(ts); const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,'0'); const dd=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${dd}`; }
+function formatDateLabel(ts){ return new Date(ts).toLocaleDateString('vi-VN'); }
 async function loadSymbols(){
   try{
     const res = await fetch('assets/symbols.csv');
@@ -196,23 +250,7 @@ async function loadSymbols(){
     state.symbols = lines.map(line=>{ const [symbol] = line.split(','); return symbol; }).filter(Boolean);
   }catch(e){ /* optional */ }
 }
-
-// symbols to skip from tagging
-const SKIP_SYMBOLS = new Set([
-  'TIN',
-  'USD',
-  'THU',
-  'VND',
-  'CEO',
-  'THA',
-  'MTL',
-  'NET',
-  'TOP',
-  'HCM',
-  'TRA',
-  'HAI'
-]);
-
+const SKIP_SYMBOLS = new Set(['TIN','USD','THU','VND','CEO','THA','MTL','NET','TOP','HCM','TRA','HAI']);
 function findSymbols(text){
   if(!text || !state.symbols.length) return [];
   const txt = ' '+text+' ';
@@ -229,75 +267,334 @@ function findSymbols(text){
   return [...new Set(out)].slice(0,8);
 }
 
-// clustering utils (optional)
+// (optional) simple title clustering — used only in single-day
 function normalizeTitle(t){ return (t||'').toLowerCase().replace(/[^\p{L}\p{N}\s]/gu,' ').replace(/\s+/g,' ').trim(); }
-function titleSim(a,b){ const bg=s=>{const x=normalizeTitle(s);let arr=[];for(let i=0;i<x.length-1;i++) arr.push(x.slice(i,i+2));return arr;}; const A=new Map(),B=new Map(); for(const k of bg(a)) A.set(k,(A.get(k)||0)+1); for(const k of bg(b)) B.set(k,(B.get(k)||0)+1); let inter=0,total=0; for(const [k,v] of A){ if(B.has(k)) inter+=Math.min(v,B.get(k)); total+=v;} for(const [k,v] of B){ total+=v;} return total? (2*inter)/total : 0; }
-function clusterByTitle(items, thr=0.62){ const clusters=[]; const used=new Array(items.length).fill(false); for(let i=0;i<items.length;i++){ if(used[i]) continue; used[i]=true; const base=items[i]; const g=[base]; for(let j=i+1;j<items.length;j++){ if(used[j]) continue; if(titleSim(base.title, items[j].title)>=thr){ used[j]=true; g.push(items[j]); } } g.sort((a,b)=>new Date(b.published)-new Date(a.published)); clusters.push(g[0]); } return clusters; }
+function titleSim(a,b){
+  const bg=s=>{const x=normalizeTitle(s);let arr=[];for(let i=0;i<x.length-1;i++) arr.push(x.slice(i,i+2));return arr;};
+  const A=new Map(),B=new Map(); for(const k of bg(a)) A.set(k,(A.get(k)||0)+1); for(const k of bg(b)) B.set(k,(B.get(k)||0)+1);
+  let inter=0,total=0; for(const [k,v] of A){ if(B.has(k)) inter+=Math.min(v,B.get(k)); total+=v;} for(const [k,v] of B){ total+=v;}
+  return total? (2*inter)/total : 0;
+}
+function clusterByTitle(items, thr=0.62){
+  const clusters=[]; const used=new Array(items.length).fill(false);
+  for(let i=0;i<items.length;i++){
+    if(used[i]) continue; used[i]=true; const base=items[i]; const g=[base];
+    for(let j=i+1;j<items.length;j++){ if(used[j]) continue; if(titleSim(base.title, items[j].title)>=thr){ used[j]=true; g.push(items[j]); } }
+    g.sort((a,b)=>new Date(b.published)-new Date(a.published)); clusters.push(g[0]);
+  }
+  return clusters;
+}
 
-// infinite scroll
-const BATCH=10; let rendered=0; let observer=null; let sentinel=null;
-function resetAndRender(){ newsList.innerHTML=''; rendered=0; if(observer){ observer.disconnect(); } observer = new IntersectionObserver((entries)=>{ if(entries.some(e=>e.isIntersecting)){ observer.unobserve(entries[0].target); renderBatch(); } }, {rootMargin:'800px'}); renderBatch(); }
-function renderBatch(){ const end=Math.min(rendered+BATCH, state.view.length); const frag=document.createDocumentFragment(); for(let i=rendered;i<end;i++){ frag.appendChild(buildNode(i)); } newsList.appendChild(frag); rendered=end; if(sentinel){ sentinel.remove(); sentinel=null; } if(rendered < state.view.length){ sentinel=document.createElement('div'); sentinel.style.height='1px'; newsList.appendChild(sentinel); observer.observe(sentinel); } }
+// ==================== FETCH with ABORT ====================
+let aborter = null;
+async function fetchJSON(url){
+  if (aborter){ try{ aborter.abort(); }catch{} }
+  const ctrl = new AbortController(); aborter = ctrl;
+  const r = await fetch(url, { cache:'no-store', signal: ctrl.signal });
+  aborter = null;
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  return r.json();
+}
 
-function dateKeyFromTs(ts){ const d=new Date(ts); const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,'0'); const dd=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${dd}`; }
-function formatDateLabel(ts){ return new Date(ts).toLocaleDateString('vi-VN'); }
-function buildNode(i){ const it = state.view[i]; const frag=document.createDocumentFragment(); if(state.groupByDate){ const curKey = dateKeyFromTs(it.published); const prev = state.view[i-1]; const prevKey = i>0 ? dateKeyFromTs(prev.published) : null; if(i===0 || curKey!==prevKey){ const h=document.createElement('h4'); h.className='date-sep'; h.textContent = formatDateLabel(it.published); frag.appendChild(h); } } const node = state.viewMode==='compact' ? buildRow(it) : buildCard(it); frag.appendChild(node); return frag; }
+// ==================== RENDERING ====================
+const BATCH = PERF.BATCH;
+let rendered=0, observer=null, sentinel=null;
 
-function buildCard(it){ const hasImg=!!it.image; const card=document.createElement('article'); card.className='card'; const left = hasImg? `<div class="thumb-wrap"><img class="thumb" loading="lazy" decoding="async" src="${it.image}" alt=""></div>` : '' ; const cls = hasImg? 'content' : 'content full'; card.innerHTML = `${left}<div class="${cls}"><h3 class="title"><a href="${it.link}" target="_blank" rel="noopener">${escapeHTML(it.title)}</a></h3><p class="summary clamp">${escapeHTML(it.summary||'')}</p><div class="meta"><span>${escapeHTML(it.source||'Unknown')}</span><span>${new Date(it.published).toLocaleString('vi-VN')}</span></div></div>`; return card; }
-
-function buildRow(it) { 
-  const row=document.createElement('div'); 
-  row.className='row'; 
-  row.setAttribute('data-summary', (it.summary||'').replace(/\n/g,' ')); 
-  const tags = findSymbols(it.title + ';' + it.summary).map(s=>`<span class="tag">${s}</span>`).join(''); 
+function buildCard(it){
+  const hasImg=!!it.image;
+  const card=document.createElement('article'); card.className='card';
+  const left = hasImg? `<div class="thumb-wrap"><img class="thumb" loading="lazy" decoding="async" src="${it.image}" alt=""></div>` : '' ;
+  const cls = hasImg? 'content' : 'content full';
+  card.innerHTML = `${left}
+    <div class="${cls}">
+      <h3 class="title"><a href="${it.link}" target="_blank" rel="noopener">${escapeHTML(it.title)}</a></h3>
+      <p class="summary clamp">${escapeHTML(it.summary||'')}</p>
+      <div class="meta"><span>${escapeHTML(it.source||'Unknown')}</span><span>${new Date(it.published).toLocaleString('vi-VN')}</span></div>
+    </div>`;
+  return card;
+}
+function buildRow(it){
+  const row=document.createElement('div'); row.className='row';
+  row.setAttribute('data-summary', (it.summary||'').replace(/\n/g,' '));
+  const willTag = dateSelect.value !== 'all' || PERF.ENABLE_SYMBOLS_IN_ALL;
+  const tags = willTag ? findSymbols(it.title + ';' + it.summary).map(s=>`<span class="tag">${s}</span>`).join('') : '';
   const timeStr = new Date(it.published).toLocaleTimeString('vi-VN', {hour: '2-digit', minute: '2-digit'});
-  row.innerHTML = `<div class="time">${timeStr}</div><div class="title"><a href="${it.link}" target="_blank" rel="noopener">${escapeHTML(it.title)}</a></div><div class="meta"><div class="tags">${tags}</div><div class="source">${escapeHTML(it.source||'Unknown')}</div></div>`; 
-  row.addEventListener('mouseenter', ()=> showPopover(row)); 
-  row.addEventListener('mouseleave', hidePopover); 
-  return row; 
+  row.innerHTML = `
+    <div class="time"><span class="t-full">${timeStr}</span><span class="t-short">${timeStr}</span></div>
+    <div class="title"><a href="${it.link}" target="_blank" rel="noopener">${escapeHTML(it.title)}</a></div>
+    <div class="meta"><div class="tags">${tags}</div><div class="source">${escapeHTML(it.source||'Unknown')}</div></div>`;
+  return row;
+}
+function buildNode(i){
+  const it = state.view[i]; const frag=document.createDocumentFragment();
+  if(state.groupByDate){
+    const curKey = dateKeyFromTs(it.published);
+    const prev = state.view[i-1];
+    const prevKey = i>0 ? dateKeyFromTs(prev.published) : null;
+    if(i===0 || curKey!==prevKey){
+      const h=document.createElement('h4'); h.className='date-sep'; h.textContent = formatDateLabel(it.published);
+      frag.appendChild(h);
+    }
+  }
+  frag.appendChild(state.viewMode==='compact'? buildRow(it) : buildCard(it));
+  return frag;
 }
 
-function showPopover(target){
-  const text = target.getAttribute('data-summary');
-  if(!text) return;
-  popover.innerText = text;
-  const r = target.getBoundingClientRect();
-  const rightOffset = (document.documentElement.clientWidth - (r.right + window.scrollX));
-  popover.style.left = 'auto';
-  popover.style.right = rightOffset + 'px';
-  popover.style.top  = (r.bottom + window.scrollY + 3) + 'px';
-  popover.classList.add('show');
-  popover.setAttribute('aria-hidden','false');
+// Skeleton (optional, static by default)
+let skelEl=null;
+function buildSkeleton(n=5){
+  const wrap=document.createElement('div'); wrap.className='skel-wrap';
+  for(let i=0;i<n;i++){
+    if(state.viewMode==='compact'){
+      const r=document.createElement('div'); r.className='skel-row';
+      r.innerHTML=`<div class="skel-line"></div><div class="skel-line w80"></div><div><div class="skel-line w60"></div></div>`;
+      wrap.appendChild(r);
+    }else{
+      const card=document.createElement('div'); card.className='skel-card';
+      card.innerHTML=`<div class="skel-thumb"></div>
+                      <div class="skel-lines">
+                        <div class="skel-line w80"></div>
+                        <div class="skel-line"></div>
+                        <div class="skel-line w60"></div>
+                      </div>`;
+      wrap.appendChild(card);
+    }
+  }
+  return wrap;
 }
-function hidePopover(){ popover.classList.remove('show'); popover.setAttribute('aria-hidden','true'); }
-window.addEventListener('scroll', ()=>{ if(popover.classList.contains('show')) hidePopover(); }, {passive:true});
+function showSkeleton(count=5){ if(!PERF.USE_SKELETON) return; hideSkeleton(); skelEl = buildSkeleton(count); newsList.appendChild(skelEl); }
+function hideSkeleton(){ if(skelEl){ skelEl.remove(); skelEl=null; } }
 
-function applyFilter(){ const q = searchInput.value.trim().toLowerCase(); let arr = state.items.filter(it=>{ const text=(it.title+' '+(it.summary||'')).toLowerCase(); return !q || text.includes(q); }); if(state.selectedSources.size){ arr = arr.filter(it=> state.selectedSources.has(it.source||'Unknown')); } if(state.timeWindow!=='all'){ const now=Date.now(); const ms = state.timeWindow==='24h'? 24*3600*1000 : state.timeWindow==='3d'? 3*86400*1000 : 7*86400*1000; arr = arr.filter(it => (now - new Date(it.published).getTime()) <= ms); } state.view = state.cluster? clusterByTitle(arr) : arr; state.view.sort((a,b)=> new Date(b.published)-new Date(a.published)); resetAndRender(); }
+function pruneDom(){
+  while (newsList.childElementCount > PERF.MAX_DOM){
+    newsList.removeChild(newsList.firstElementChild);
+  }
+}
 
-async function loadIndex(){ await loadSymbols(); const idx = await fetchJSON('news/index.json'); const dates = idx.dates || []; dateSelect.innerHTML=''; const allOption=document.createElement('option'); allOption.value='all'; allOption.textContent='Tất cả'; dateSelect.appendChild(allOption); dates.forEach(d=>{const o=document.createElement('option');o.value=d;o.textContent=d;dateSelect.appendChild(o)}); const udate=new URLSearchParams(location.search).get('date'); dateSelect.value = udate && (udate==='all' || dates.includes(udate)) ? udate : 'all'; await loadDay(dateSelect.value); }
+function renderBatch(){
+  const end=Math.min(rendered+BATCH, state.view.length);
+  const frag=document.createDocumentFragment();
+  for(let i=rendered;i<end;i++){ frag.appendChild(buildNode(i)); }
+  newsList.appendChild(frag);
+  rendered=end;
 
-async function loadDay(d){ if(d==='all'){ const idx = await fetchJSON('news/index.json'); const all = await Promise.all(idx.dates.map(dt=> fetchJSON('news/'+dt+'.json'))); state.items = all.flatMap(x=> Object.values(x)); state.groupByDate = true; } else { const data = await fetchJSON('news/'+d+'.json'); state.items = Object.values(data); state.groupByDate = false; } applyFilter(); }
+  if(sentinel){ sentinel.remove(); sentinel=null; }
+  if(rendered < state.view.length || canFillMore()){
+    sentinel=document.createElement('div'); sentinel.style.height='1px'; newsList.appendChild(sentinel);
+    observer.observe(sentinel);
+  }
+  pruneDom();
+}
 
-// events
-const runFilter = debounce(applyFilter, 120);
+function resetAndRender(){
+  newsList.innerHTML=''; hideSkeleton(); rendered=0;
+  if(observer){ observer.disconnect(); }
+  observer = new IntersectionObserver(async (entries)=>{
+    if(entries.some(e=>e.isIntersecting)){
+      observer.unobserve(entries[0].target);
+      if (PERF.USE_SKELETON) showSkeleton(3);
+      await ensureFilled(rendered + BATCH);
+      if (PERF.USE_SKELETON) hideSkeleton();
+      renderBatch();
+    }
+  }, { rootMargin:'600px', threshold:0.01 });
+
+  if (PERF.USE_SKELETON) showSkeleton();
+  ensureFilled(BATCH).then(()=>{ if (PERF.USE_SKELETON) hideSkeleton(); renderBatch(); })
+                      .catch(()=>{ if (PERF.USE_SKELETON) hideSkeleton(); });
+}
+
+function canFillMore(){
+  return dateSelect.value==='all' && (state.prog.curIdx < state.prog.curItems.length || state.prog.datesQueue.length>0);
+}
+
+// ==================== FILTERING & FILLING ====================
+function filterPredicate(it){
+  const q = (searchInput.value||'').trim().toLowerCase();
+  if(q){
+    const text=(it.title+' '+(it.summary||'')).toLowerCase();
+    if(!text.includes(q)) return false;
+  }
+  if(state.selectedSources.size){
+    if(!state.selectedSources.has(it.source||'Unknown')) return false;
+  }
+  if(state.timeWindow!=='all'){
+    const now=Date.now();
+    const ms = state.timeWindow==='24h'? 24*3600*1000 : state.timeWindow==='3d'? 3*86400*1000 : 7*86400*1000;
+    if((now - new Date(it.published).getTime()) > ms) return false;
+  }
+  return true;
+}
+
+let loading=false, loadingDate=false;
+
+async function ensureFilled(n){
+  if(dateSelect.value!=='all' || !state.prog.ready) return;
+  if (loading) return;
+  loading = true;
+  try{
+    while(state.view.length < n){
+      // consume current date items
+      while(state.prog.curIdx < state.prog.curItems.length && state.view.length < n){
+        const it = state.prog.curItems[state.prog.curIdx++];
+        if(filterPredicate(it)){ state.view.push(it); }
+      }
+      if(state.view.length >= n) break;
+
+      // move to next date
+      if(state.prog.curIdx >= state.prog.curItems.length){
+        if(state.prog.datesQueue.length === 0) break;
+        await loadNextDateFile();
+      }
+      await new Promise((res)=> (window.requestIdleCallback? requestIdleCallback(()=>res()) : setTimeout(res,16)));
+    }
+  } finally { loading=false; }
+}
+
+async function loadNextDateFile(){
+  if (loadingDate) return;
+  const P = state.prog;
+  if(P.datesQueue.length===0) return;
+  loadingDate = true;
+  try{
+    const nextDate = P.datesQueue.shift();
+    P.curDate = nextDate;
+    const data = await fetchJSON('news/'+nextDate+'.json');
+    P.curItems = Object.values(data).sort((a,b)=> new Date(b.published)-new Date(a.published));
+    P.curIdx = 0;
+  } finally { loadingDate = false; }
+}
+
+async function initProgressiveAll(dates){
+  state.groupByDate = true;
+  state.view = [];
+  state.items = [];
+  state.prog = { datesQueue:[...dates], curDate:null, curItems:[], curIdx:0, ready:true };
+  await loadNextDateFile(); // prime first date
+}
+
+function applyFilterSingleDay(){
+  const q = searchInput.value.trim().toLowerCase();
+  let arr = state.items.filter(it=>{
+    const text=(it.title+' '+(it.summary||'')).toLowerCase();
+    return !q || text.includes(q);
+  });
+  if(state.selectedSources.size){ arr = arr.filter(it=> state.selectedSources.has(it.source||'Unknown')); }
+  if(state.timeWindow!=='all'){
+    const now=Date.now();
+    const ms = state.timeWindow==='24h'? 24*3600*1000 : state.timeWindow==='3d'? 3*86400*1000 : 7*86400*1000;
+    arr = arr.filter(it => (now - new Date(it.published).getTime()) <= ms);
+  }
+  state.view = state.cluster ? clusterByTitle(arr) : arr.slice();
+  state.view.sort((a,b)=> new Date(b.published)-new Date(a.published));
+  state.groupByDate = false;
+  resetAndRender();
+}
+
+const runFilter = debounce(async ()=>{
+  if (aborter) { try { aborter.abort(); } catch{} }
+  loading=false; loadingDate=false;
+
+  if(dateSelect.value==='all'){
+    const idx = await fetchJSON('news/index.json');
+    await initProgressiveAll(idx.dates || []);
+    resetAndRender();
+  }else{
+    applyFilterSingleDay();
+  }
+}, 120);
+
+// ==================== INDEX & DAY LOAD ====================
+async function loadIndex(){
+  await loadSymbols();
+  const idx = await fetchJSON('news/index.json');
+  const dates = idx.dates || [];
+
+  // build selector
+  dateSelect.innerHTML='';
+  const allOption=document.createElement('option'); allOption.value='all'; allOption.textContent='Tất cả';
+  dateSelect.appendChild(allOption);
+  dates.forEach(d=>{const o=document.createElement('option');o.value=d;o.textContent=d;dateSelect.appendChild(o)});
+
+  const udate=new URLSearchParams(location.search).get('date');
+  dateSelect.value = udate && (udate==='all' || dates.includes(udate)) ? udate : 'all';
+
+  if(dateSelect.value==='all'){
+    await initProgressiveAll(dates);
+    resetAndRender(); // first paint: 20
+  }else{
+    await loadDay(dateSelect.value);
+  }
+}
+
+async function loadDay(d){
+  if(d==='all') return;
+  const data = await fetchJSON('news/'+d+'.json');
+  state.items = Object.values(data);
+  applyFilterSingleDay();
+}
+
+// ==================== EVENTS ====================
 searchInput.addEventListener('input', runFilter);
-btnClear.addEventListener('click', ()=>{ searchInput.value=''; applyFilter(); searchInput.focus(); });
+btnClear.addEventListener('click', ()=>{ searchInput.value=''; runFilter(); searchInput.focus(); });
+
 // mobile search toggle
 btnSearch.addEventListener('click', ()=>{ document.body.classList.add('search-open'); setTimeout(()=> searchInput.focus(), 0); });
 searchInput.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ document.body.classList.remove('search-open'); searchInput.blur(); }});
 searchInput.addEventListener('blur', ()=>{ if(window.matchMedia('(max-width:640px)').matches && !searchInput.value){ document.body.classList.remove('search-open'); }});
 btnCancelSearch.addEventListener('click', ()=>{ document.body.classList.remove('search-open'); searchInput.blur(); });
 
-dateSelect.addEventListener('change', ()=> loadDay(dateSelect.value));
-btnLatest.addEventListener('click', async ()=>{ const latest = await fetchJSON('news/latest.json'); if(latest && latest.date){ dateSelect.value = latest.date; await loadDay(latest.date); } });
-btnRefresh.addEventListener('click', ()=> loadDay(dateSelect.value));
+dateSelect.addEventListener('change', async ()=>{
+  if (aborter) { try { aborter.abort(); } catch{} }
+  if(dateSelect.value==='all'){
+    const idx = await fetchJSON('news/index.json');
+    await initProgressiveAll(idx.dates || []);
+    resetAndRender();
+  }else{
+    await loadDay(dateSelect.value);
+  }
+});
 
-viewModeSel.addEventListener('change', ()=>{ state.viewMode = viewModeSel.value; localStorage.setItem('viewMode', state.viewMode); resetAndRender(); });
+btnLatest.addEventListener('click', async ()=>{
+  const latest = await fetchJSON('news/latest.json');
+  if(latest && latest.date){ dateSelect.value = latest.date; await loadDay(latest.date); }
+});
 
-// persist selected view on load
+btnRefresh.addEventListener('click', async ()=>{
+  if(dateSelect.value==='all'){
+    const idx = await fetchJSON('news/index.json');
+    await initProgressiveAll(idx.dates || []);
+    resetAndRender();
+  }else{
+    await loadDay(dateSelect.value);
+  }
+});
+
+viewModeSel.addEventListener('change', ()=>{
+  state.viewMode = viewModeSel.value;
+  localStorage.setItem('viewMode', state.viewMode);
+  resetAndRender();
+});
 localStorage.setItem('viewMode', state.viewMode);
 
-// boot
+// Popover: event delegation (no per-row listeners)
+newsList.addEventListener('mouseover', (e)=>{
+  const row = e.target.closest('.row');
+  if(!row) return;
+  const text = row.getAttribute('data-summary');
+  if(!text) return;
+  popover.innerText = text;
+  const r = row.getBoundingClientRect();
+  popover.style.left = (r.left + window.scrollX) + 'px';
+  popover.style.top  = (r.bottom + window.scrollY + 3) + 'px';
+  popover.classList.add('show'); popover.setAttribute('aria-hidden','false');
+});
+newsList.addEventListener('mouseout', (e)=>{
+  if (!e.relatedTarget || !newsList.contains(e.relatedTarget)) hidePopover();
+});
+function hidePopover(){ popover.classList.remove('show'); popover.setAttribute('aria-hidden','true'); }
+
+// ==================== BOOT ====================
 loadIndex();
 </script>
 </body>
