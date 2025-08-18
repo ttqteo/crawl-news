@@ -51,7 +51,7 @@
   .meta{margin-top:auto;display:flex;gap:8px;justify-content:space-between;color:var(--muted-2);font-size:.86rem;padding-top:6px}
 
   /* COMPACT MODE (time | title | tags | source) */
-  .row{display:grid;grid-template-columns:35px 1fr auto 160px;gap:8px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px;margin-bottom:8px}
+  .row{display:grid;grid-template-columns:35px 1fr auto auto;gap:8px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px;margin-bottom:8px}
   .row .time{color:var(--muted-2);font-variant-numeric:tabular-nums;font-size:10px;line-height:auto;}
   .row .title a{color:var(--text);text-decoration:none}
   .row .title a:hover{color:var(--accent-2);text-decoration:underline}
@@ -147,11 +147,9 @@
     .row{ grid-template-columns: 72px 1fr auto; }
     .row .meta{ display:flex; align-items:center; gap:8px; }
     .col-toggle{
-      display:inline-flex; align-items:center; justify-content:center;
-      width:28px; height:28px; border:1px solid var(--border,#334155);
-      border-radius:8px; background:transparent; color:inherit; cursor:pointer;
+      display:inline-flex; align-items:center; justify-content:center; border: none;
+      width:24px; height:24px; background:transparent; color:inherit; cursor:pointer;
     }
-    .col-toggle .chev{ display:inline-block; transition: transform .18s ease; line-height:1; }
     .row-summary{
       grid-column: 1 / -1; display:none; margin:6px 0 4px 0; padding:8px 10px;
       font-size:.92rem; line-height:1.35; color:var(--muted,#94a3b8);
@@ -197,7 +195,7 @@ const PERF = {
   BATCH: 20,                // items per batch
   MAX_DOM: 120,             // cap nodes in DOM to prevent jank
   USE_SKELETON: true,      // shimmer placeholders (off = fastest)
-  ENABLE_SYMBOLS_IN_ALL: false // symbol tagging is heavy; keep off in "all"
+  ENABLE_SYMBOLS_IN_ALL: true // symbol tagging is heavy; keep off in "all"
 };
 
 const dateSelect = document.getElementById('dateSelect');
@@ -261,33 +259,39 @@ themeToggle.addEventListener('click', ()=>{
 });
 
 // ==================== HELPERS ====================
+let SYMBOLS_SET = new Set();
 function debounce(fn,ms){let t;return (...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms)};}
 function escapeHTML(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;'); }
 function dateKeyFromTs(ts){ const d=new Date(ts); const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,'0'); const dd=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${dd}`; }
 function formatDateLabel(ts){ return new Date(ts).toLocaleDateString('vi-VN'); }
 async function loadSymbols(){
-  try{
+  try {
     const res = await fetch('assets/symbols.csv');
     const csv = await res.text();
     const lines = csv.split('\n').slice(1);
-    state.symbols = lines.map(line=>{ const [symbol] = line.split(','); return symbol; }).filter(Boolean);
-  }catch(e){ /* optional */ }
+    SYMBOLS_SET = new Set(
+      lines.map(line => {
+        const [symbol] = line.split(',');
+        return symbol?.trim().toUpperCase();
+      }).filter(Boolean)
+    );
+  } catch(e) { /* optional */ }
 }
 const SKIP_SYMBOLS = new Set(['TIN','USD','THU','VND','CEO','THA','MTL','NET','TOP','HCM','TRA','HAI']);
 function findSymbols(text){
-  if(!text || !state.symbols.length) return [];
-  const txt = ' '+text+' ';
-  const out = [];
-  for(const s of state.symbols){
-    if(s && s.length>=3){
-      const re = new RegExp(`(?:^|[^\\p{L}\\p{N}])${s}(?=$|[^\\p{L}\\p{N}])`, 'iu');
-      if(re.test(txt)){
-        const u = s.toUpperCase();
-        if(!SKIP_SYMBOLS.has(u)) out.push(u);
-      }
+  if(!text || SYMBOLS_SET.size === 0) return [];
+  
+  // Split by non-word chars
+  const words = text.toUpperCase().split(/[^A-Z0-9À-Ỹ]/u);
+  const out = new Set();
+
+  for (const w of words){
+    if (w.length >= 3 && SYMBOLS_SET.has(w) && !SKIP_SYMBOLS.has(w)) {
+      out.add(w);
+      if(out.size >= 8) break;
     }
   }
-  return [...new Set(out)].slice(0,8);
+  return [...out];
 }
 
 // (optional) simple title clustering — used only in single-day
@@ -346,15 +350,17 @@ function buildRow(it, i){
   const timeStr = new Date(it.published).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'});
   const sumId = `sum-${i}-${Math.random().toString(36).slice(2,7)}`;
 
+  const summaryBtn = it.summary ? `<button class="col-toggle" aria-expanded="false" aria-controls="${sumId}" title="Xem tóm tắt">
+        <i class="fa-solid fa-circle-info"></i>
+      </button>` : '';
+
   row.innerHTML = `
     <div class="time"><span class="t-full">${timeStr}</span><span class="t-short">${timeStr}</span></div>
     <div class="title"><a href="${it.link}" target="_blank" rel="noopener">${escapeHTML(it.title)}</a></div>
     <div class="meta">
       <div class="tags">${tags}</div>
       <div class="source">${escapeHTML(it.source||'Unknown')}</div>
-      <button class="col-toggle" aria-expanded="false" aria-controls="${sumId}" title="Xem tóm tắt">
-        <span class="chev">▾</span>
-      </button>
+      ${summaryBtn}
     </div>
     <div id="${sumId}" class="row-summary">${escapeHTML(it.summary||'')}</div>
   `;
@@ -618,10 +624,9 @@ newsList.addEventListener('mouseover', (e)=>{
   const row = e.target.closest('.row');
   if(!row) return;
   const text = row.getAttribute('data-summary');
-  if(!text) return;
   popover.innerText = text;
   const r = row.getBoundingClientRect();
-  popover.style.left = (r.left + window.scrollX) + 'px';
+  popover.style.right = (window.innerWidth - r.right) + 'px';
   popover.style.top  = (r.bottom + window.scrollY + 3) + 'px';
   popover.classList.add('show'); popover.setAttribute('aria-hidden','false');
 });
