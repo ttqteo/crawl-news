@@ -142,6 +142,29 @@
     .row .time .t-full{display:none}
     .row .time .t-short{display:inline}
   }
+  /* Mobile-only collapsible summary in compact rows */
+  @media (max-width:640px){
+    .row{ grid-template-columns: 72px 1fr auto; }
+    .row .meta{ display:flex; align-items:center; gap:8px; }
+    .col-toggle{
+      display:inline-flex; align-items:center; justify-content:center;
+      width:28px; height:28px; border:1px solid var(--border,#334155);
+      border-radius:8px; background:transparent; color:inherit; cursor:pointer;
+    }
+    .col-toggle .chev{ display:inline-block; transition: transform .18s ease; line-height:1; }
+    .row-summary{
+      grid-column: 1 / -1; display:none; margin:6px 0 4px 0; padding:8px 10px;
+      font-size:.92rem; line-height:1.35; color:var(--muted,#94a3b8);
+      border-left:2px solid var(--border,#334155);
+      font-size:11px;
+    }
+    .row-summary.open{ display:block; }
+    /* Optional: hide desktop popover on mobile */
+    #popover{ display:none !important; }
+  }
+  @media (min-width:641px){
+    .col-toggle, .row-summary{ display:none !important; }
+  }
 </style>
 </head>
 <body>
@@ -313,30 +336,43 @@ function buildCard(it){
     </div>`;
   return card;
 }
-function buildRow(it){
+function buildRow(it, i){
   const row=document.createElement('div'); row.className='row';
+  // For desktop popover:
   row.setAttribute('data-summary', (it.summary||'').replace(/\n/g,' '));
+
   const willTag = dateSelect.value !== 'all' || PERF.ENABLE_SYMBOLS_IN_ALL;
-  const tags = willTag ? findSymbols(it.title + ';' + it.summary).map(s=>`<span class="tag">${s}</span>`).join('') : '';
-  const timeStr = new Date(it.published).toLocaleTimeString('vi-VN', {hour: '2-digit', minute: '2-digit'});
+  const tags = willTag ? findSymbols(it.title + ';' + (it.summary||'')).map(s=>`<span class="tag">${s}</span>`).join('') : '';
+  const timeStr = new Date(it.published).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'});
+  const sumId = `sum-${i}-${Math.random().toString(36).slice(2,7)}`;
+
   row.innerHTML = `
     <div class="time"><span class="t-full">${timeStr}</span><span class="t-short">${timeStr}</span></div>
     <div class="title"><a href="${it.link}" target="_blank" rel="noopener">${escapeHTML(it.title)}</a></div>
-    <div class="meta"><div class="tags">${tags}</div><div class="source">${escapeHTML(it.source||'Unknown')}</div></div>`;
+    <div class="meta">
+      <div class="tags">${tags}</div>
+      <div class="source">${escapeHTML(it.source||'Unknown')}</div>
+      <button class="col-toggle" aria-expanded="false" aria-controls="${sumId}" title="Xem tóm tắt">
+        <span class="chev">▾</span>
+      </button>
+    </div>
+    <div id="${sumId}" class="row-summary">${escapeHTML(it.summary||'')}</div>
+  `;
   return row;
 }
 function buildNode(i){
-  const it = state.view[i]; const frag=document.createDocumentFragment();
+  const it = state.view[i];
+  const frag = document.createDocumentFragment();
   if(state.groupByDate){
     const curKey = dateKeyFromTs(it.published);
-    const prev = state.view[i-1];
-    const prevKey = i>0 ? dateKeyFromTs(prev.published) : null;
+    const prevKey = i>0 ? dateKeyFromTs(state.view[i-1].published) : null;
     if(i===0 || curKey!==prevKey){
       const h=document.createElement('h4'); h.className='date-sep'; h.textContent = formatDateLabel(it.published);
       frag.appendChild(h);
     }
   }
-  frag.appendChild(state.viewMode==='compact'? buildRow(it) : buildCard(it));
+  const node = state.viewMode==='compact' ? buildRow(it, i) : buildCard(it);
+  frag.appendChild(node);
   return frag;
 }
 
@@ -591,6 +627,23 @@ newsList.addEventListener('mouseover', (e)=>{
 });
 newsList.addEventListener('mouseout', (e)=>{
   if (!e.relatedTarget || !newsList.contains(e.relatedTarget)) hidePopover();
+});
+// Mobile-only: toggle summary panel when tapping the caret button
+newsList.addEventListener('click', (e)=>{
+  const btn = e.target.closest('.col-toggle');
+  if(!btn) return;
+  if(!window.matchMedia('(max-width:640px)').matches) return; // only on mobile
+
+  const id = btn.getAttribute('aria-controls');
+  const panel = document.getElementById(id);
+  if(!panel) return;
+
+  const expanded = btn.getAttribute('aria-expanded') === 'true';
+  btn.setAttribute('aria-expanded', String(!expanded));
+  panel.classList.toggle('open', !expanded);
+
+  const chev = btn.querySelector('.chev');
+  if(chev){ chev.style.transform = !expanded ? 'rotate(180deg)' : 'rotate(0deg)'; }
 });
 function hidePopover(){ popover.classList.remove('show'); popover.setAttribute('aria-hidden','true'); }
 
