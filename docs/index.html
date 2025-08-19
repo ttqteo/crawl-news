@@ -391,12 +391,18 @@ async function fetchJSON(url){
 const BATCH = PERF.BATCH;
 let rendered=0, observer=null, sentinel=null;
 
-function buildCard(it){
-  const hasImg=!!it.image;
-  const card=document.createElement('article'); card.className='card';
+// after:
+function buildCard(it, i){
+  const hasImg = !!it.image;
+  const card = document.createElement('article');
+  card.className = 'card';
   card.dataset.idx = i;
-  const left = hasImg? `<div class="thumb-wrap"><img class="thumb" loading="lazy" decoding="async" src="${it.image}" alt=""></div>` : '' ;
-  const cls = hasImg? 'content' : 'content full';
+  card.setAttribute('data-summary', (it.summary||'').replace(/\n/g,' '));
+
+  const left = hasImg
+    ? `<div class="thumb-wrap"><img class="thumb" loading="lazy" decoding="async" src="${it.image}" alt=""></div>`
+    : '';
+  const cls = hasImg ? 'content' : 'content full';
   card.innerHTML = `${left}
     <div class="${cls}">
       <h3 class="title"><a href="${it.link}" target="_blank" rel="noopener">${escapeHTML(it.title)}</a></h3>
@@ -405,6 +411,7 @@ function buildCard(it){
     </div>`;
   return card;
 }
+
 const HIGHLIGHT_TITLE = [
   "Đọc gì trước giờ giao dịch chứng khoán",
   "Vietstock Daily",
