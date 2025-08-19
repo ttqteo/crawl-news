@@ -6,6 +6,8 @@ Currently supported:
 - Vietstock - Cổ phiếu; Nhận định thị trường; Hoạt động kinh doanh; Ngân hàng
 - Markettimes
 - Người Quan Sát
+- VnExpress - Kinh doanh
+- Tin Nhanh Chứng Khoán - Chứng khoán
   
 Each file contains deduplicated news items for that day.
 
