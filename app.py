@@ -152,7 +152,7 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     crawl(config_path=args.config, force=args.force)
-    # Auto-build docs/news/index.json and latest.json
+    # Auto-build docs/news/index.json
     try:
         build_index()
     except Exception as e:
