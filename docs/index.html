@@ -58,7 +58,8 @@
   .row .tags{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-start;}
   /* allow wrapping container that doesn't affect desktop grid placement */
   .row .meta{display:contents}
-  .tag{padding:1px 5px;border-radius:999px;font-size:.72rem;color:#1e40af;background:#eef2ff;white-space:nowrap;margin-left:2px;}
+  .tag{padding:1px 5px;border-radius:999px;font-size:.72rem;color:#1e40af;background:#eef2ff;white-space:nowrap;margin-left:4px;font-weight: 750;}
+  .sp-tags .tag{margin-left: 0!important;}
   .row .source{color:var(--muted-2);text-align:right;font-size:10px;}
   .row:hover{border-color:var(--accent)}
   /* default time display: show full, hide short */
@@ -166,6 +167,53 @@
     .col-toggle, .row-summary{ display:none !important; }
   }
 </style>
+<style>
+  .layout{ max-width:1200px; margin:12px auto; padding:0 14px; }
+
+  /* When side panel is open (desktop), switch to 2 columns */
+  @media (min-width:641px){
+    body.side-open .layout{
+      display:grid;
+      grid-template-columns: minmax(0,1fr) 360px; /* list | side */
+      gap:16px;
+    }
+  }
+
+  #sidePanel{
+    display:none; /* hidden by default unless side-open & desktop */
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:12px;
+    box-shadow:0 6px 20px rgba(0,0,0,.08);
+    overflow:hidden;
+  }
+  @media (min-width:641px){
+    body.side-open #sidePanel{ display:block; position:sticky; top:64px; height:fit-content; }
+  }
+  #sidePanel .sp-head{
+    padding:10px 12px; font-weight:700; border-bottom:1px solid var(--border); color:var(--muted-2);
+  }
+  #sidePanel .sp-body{ padding:12px; display:grid; gap:10px; }
+  #sidePanel .sp-title a{ color:var(--text); text-decoration:none; font-weight:750; }
+  #sidePanel .sp-title a:hover{ color:var(--accent-2); text-decoration:underline; }
+  #sidePanel .sp-summary{ color:var(--muted); font-size:13px; line-height:1.45; }
+  #sidePanel .sp-meta{ color:var(--muted-2); font-size:12px; display:grid; gap:4px; }
+
+  /* Header toggle active state */
+  #sideToggle.is-on{
+    background:var(--accent); color:#fff; border-color:var(--accent);
+  }
+
+  /* Hide the toggle on mobile */
+  @media (max-width:640px){
+    #sideToggle{ display:none; }
+  }
+
+  /* Optional: allow main to stretch when using the grid layout */
+  main#newsList{ max-width:unset; margin:0; padding:0; }
+
+  #sidePanel{ transition: top .12s ease; }
+</style>
 </head>
 <body>
 <header>
@@ -182,12 +230,28 @@
       <option value="compact">Gọn</option>
     </select>
     <button id="btnRefresh" class="ghost" title="Tải lại dữ liệu"><i class="fa-solid fa-rotate-right"></i></button>
+    <button id="sideToggle" class="ghost" title="Bật/tắt tóm tắt (desktop)">
+      <i class="fa-solid fa-circle-info"></i>
+    </button>
     <button id="themeToggle" class="ghost" title="Dark/Light">🌓</button>
     <button id="btnSearch" class="ghost" title="Tìm kiếm"><i class="fa-solid fa-magnifying-glass"></i></button>
   </div>
 </header>
 
-<main id="newsList"></main>
+<div class="layout">
+  <main id="newsList"></main>
+
+  <aside id="sidePanel" aria-live="polite">
+    <div class="sp-head">Tóm tắt nhanh</div>
+    <div class="sp-body">
+      <div class="sp-title">Di chuột vào một tin để xem tóm tắt…</div>
+      <div class="sp-summary"></div>
+      <div class="sp-tags"></div>
+      <div class="sp-meta"></div>
+    </div>
+  </aside>
+</div>
+
 <div id="popover" class="popover" aria-hidden="true"></div>
 
 <script>
@@ -330,6 +394,7 @@ let rendered=0, observer=null, sentinel=null;
 function buildCard(it){
   const hasImg=!!it.image;
   const card=document.createElement('article'); card.className='card';
+  card.dataset.idx = i;
   const left = hasImg? `<div class="thumb-wrap"><img class="thumb" loading="lazy" decoding="async" src="${it.image}" alt=""></div>` : '' ;
   const cls = hasImg? 'content' : 'content full';
   card.innerHTML = `${left}
@@ -364,6 +429,7 @@ function slugify(s){
 }
 function buildRow(it, i){
   const row=document.createElement('div'); row.className='row';
+  row.dataset.idx = i;
   // For desktop popover:
   row.setAttribute('data-summary', (it.summary||'').replace(/\n/g,' '));
 
@@ -423,6 +489,7 @@ function buildNode(i){
     }
   }
   const node = state.viewMode==='compact' ? buildRow(it, i) : buildCard(it);
+  node.dataset.idx = i;
   frag.appendChild(node);
   return frag;
 }
@@ -483,6 +550,7 @@ function resetAndRender(){
       await ensureFilled(rendered + BATCH);
       if (PERF.USE_SKELETON) hideSkeleton();
       renderBatch();
+      initSidePanel();
     }
   }, { rootMargin:'600px', threshold:0.01 });
 
@@ -661,15 +729,28 @@ localStorage.setItem('viewMode', state.viewMode);
 
 // Popover: event delegation (no per-row listeners)
 newsList.addEventListener('mouseover', (e)=>{
-  const row = e.target.closest('.row');
-  if(!row) return;
-  const text = row.getAttribute('data-summary');
-  popover.innerText = text;
-  const r = row.getBoundingClientRect();
-  popover.style.right = (window.innerWidth - r.right) + 'px';
-  popover.style.top  = (r.bottom + window.scrollY + 3) + 'px';
-  popover.classList.add('show'); popover.setAttribute('aria-hidden','false');
+  const el = e.target.closest('.row, .card');
+  if(!el) return;
+
+  const idx = el.dataset.idx;
+  if(idx != null){
+    const it = state.view[Number(idx)];
+    setSidePanel(it);
+  }
+
+  const pref = localStorage.getItem('sideOpen') !== '0';
+  if (!pref) {
+    const row = e.target.closest('.row');
+    if(!row) return;
+    const text = row.getAttribute('data-summary');
+    popover.innerText = text;
+    const r = row.getBoundingClientRect();
+    popover.style.right = (window.innerWidth - r.right) + 'px';
+    popover.style.top  = (r.bottom + window.scrollY + 3) + 'px';
+    popover.classList.add('show'); popover.setAttribute('aria-hidden','false');
+  }
 });
+
 newsList.addEventListener('mouseout', (e)=>{
   if (!e.relatedTarget || !newsList.contains(e.relatedTarget)) hidePopover();
 });
@@ -691,6 +772,64 @@ newsList.addEventListener('click', (e)=>{
   if(chev){ chev.style.transform = !expanded ? 'rotate(180deg)' : 'rotate(0deg)'; }
 });
 function hidePopover(){ popover.classList.remove('show'); popover.setAttribute('aria-hidden','true'); }
+
+// ===== SIDE PANEL UPDATER =====
+const sideToggle = document.getElementById('sideToggle');
+const sidePanel  = document.getElementById('sidePanel');
+const spTitle = sidePanel.querySelector('.sp-title');
+const spSummary = sidePanel.querySelector('.sp-summary');
+const spMeta = sidePanel.querySelector('.sp-meta');
+const spTags = sidePanel.querySelector('.sp-tags');
+
+function setSideOpen(on){
+  const isMobile = window.matchMedia('(max-width:640px)').matches;
+  const final = on && !isMobile; // never open on mobile
+  document.body.classList.toggle('side-open', final);
+  sideToggle.classList.toggle('is-on', final);
+  localStorage.setItem('sideOpen', on ? '1' : '0'); // store user preference
+}
+
+// default: open (desktop). Respect saved preference.
+const savedSide = localStorage.getItem('sideOpen');
+setSideOpen(savedSide === null ? true : savedSide === '1');
+
+// if user resizes across breakpoints, re-apply
+window.addEventListener('resize', ()=> {
+  const pref = localStorage.getItem('sideOpen') !== '0';
+  setSideOpen(pref);
+});
+
+sideToggle.addEventListener('click', ()=>{
+  const pref = localStorage.getItem('sideOpen') !== '0';
+  setSideOpen(!pref);
+});
+
+function setSidePanel(it){
+  if(!document.body.classList.contains('side-open') || !it) return;
+  const src  = it.source || 'Unknown';
+  spTitle.innerHTML = it.link
+  ? `<a href="${it.link}" target="_blank" rel="noopener">${escapeHTML(it.title)}</a>`
+  : escapeHTML(it.title);
+
+  const willTag = dateSelect.value !== 'all' || PERF.ENABLE_SYMBOLS_IN_ALL;
+  const tags = willTag ? findSymbols(it.title + ';' + (it.summary||'')).map(s=>`<span class="tag">${s}</span>`).join(' ') : '';
+  spTags.innerHTML = tags;
+
+  spSummary.textContent = it.summary || '';
+
+  const time = new Date(it.published).toLocaleString('vi-VN');
+  const sourceType = it.source_type || SOURCE_TYPE_BY_SOURCE[it.source] || slugify(it.source);
+  const logoUrl = `assets/images/${sourceType}.png`;
+  spMeta.innerHTML = `<div class="source"><img class="source-logo" src="${logoUrl}" alt="${sourceType}" loading="lazy"
+             onerror="this.style.display='none'">${escapeHTML(src)}</div><div>${time}</div>`;
+}
+
+function initSidePanel(){
+  if(document.body.classList.contains('side-open') && state.view.length){
+    setSidePanel(state.view[0]); // show first item so panel isn’t empty
+  }
+}
+
 
 // ==================== BOOT ====================
 loadIndex();
