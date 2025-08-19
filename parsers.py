@@ -211,6 +211,52 @@ class NguoiQuanSatParser(BaseParser):
                 "raw": e,
             }
 
+class VnExpressParser(BaseParser):
+    """
+    VnExpress (OneCMS-like) places an <img> inside <description> and also
+    includes full HTML in <content:encoded>.
+
+    Strategy:
+      - summary: prefer textified <description>; else textify <content:encoded>
+                 then trim to a concise blurb.
+      - image: media:* > <img> in description > <img> in content:encoded
+    """
+    def parse(self, url: str, ctx: FeedContext) -> Iterable[Dict[str, Any]]:
+        parsed = feedparser.parse(url, sanitize_html=False, resolve_relative_uris=False)
+        for e in parsed.entries:
+            guid = (e.get("guid") or e.get("id") or e.get("link") or "").strip()
+            link = (e.get("link") or "").strip()
+            title = (e.get("title") or "").strip()
+
+            content_html = _get_content_html(e)
+            desc_html = e.get("summary") or e.get("description")
+
+            summary_src = desc_html or content_html
+            summary_text = _onecms_summary(summary_src)  # or _clean_html_text(summary_src)
+            if len(summary_text) > 300:
+                summary_text = summary_text[:297].rstrip() + "..."
+            summary_text = summary_text.replace("]]>", "")
+            
+            published = _parse_ts(e)
+
+            # image
+            image = _first_media_url(e)
+            if not image and desc_html:
+                image = _image_from_html(desc_html)
+            if not image and content_html:
+                image = _image_from_html(content_html)
+
+            yield {
+                "guid": guid,
+                "link": link,
+                "title": title,
+                "summary": summary_text,
+                "published": published,
+                "image": image,
+                "raw": e,
+            }
+
+
 # ---------- registry & accessor ----------
 
 PARSER_REGISTRY = {
@@ -218,6 +264,7 @@ PARSER_REGISTRY = {
     "vietstock": VietstockParser(),
     "markettimes": MarketTimesParser(),
     "nguoiquansat": NguoiQuanSatParser(),
+    "vnexpress": VnExpressParser(),
 }
 
 def get_parser(source_type: str) -> BaseParser:

@@ -18,3 +18,7 @@ sources:
       - "https://nguoiquansat.vn/rss/chung-khoan"
       - "https://nguoiquansat.vn/rss/chung-khoan/chuyen-dong-thi-truong"
       - "https://nguoiquansat.vn/rss/doanh-nghiep/co-hoi-dau-tu"
+  - name: "VnExpress"
+    type: vnexpress
+    urls:
+      - "https://vnexpress.net/rss/kinh-doanh.rss"
