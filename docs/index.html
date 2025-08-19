@@ -58,7 +58,7 @@
   .row .tags{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-start}
   /* allow wrapping container that doesn't affect desktop grid placement */
   .row .meta{display:contents}
-  .tag{border:1px solid var(--border);padding:2px 6px;border-radius:999px;font-size:.72rem;color:#1e40af;background:#eef2ff;white-space:nowrap}
+  .tag{border:1px solid var(--border);padding:1px 4px;border-radius:999px;font-size:.72rem;color:#1e40af;background:#eef2ff;white-space:nowrap}
   .row .source{color:var(--muted-2);text-align:right;font-size:10px;}
   .row:hover{border-color:var(--accent)}
   /* default time display: show full, hide short */
@@ -340,6 +340,7 @@ function buildCard(it){
 const HIGHLIGHT_TITLE = [
   "Đọc gì trước giờ giao dịch chứng khoán",
   "Vietstock Daily",
+  "IPO",
 ]
 function buildRow(it, i){
   const row=document.createElement('div'); row.className='row';
@@ -347,7 +348,7 @@ function buildRow(it, i){
   row.setAttribute('data-summary', (it.summary||'').replace(/\n/g,' '));
 
   const willTag = dateSelect.value !== 'all' || PERF.ENABLE_SYMBOLS_IN_ALL;
-  const tags = willTag ? findSymbols(it.title + ';' + (it.summary||'')).map(s=>`<span class="tag">${s}</span>`).join('') : '';
+  const tags = willTag ? findSymbols(it.title + ';' + (it.summary||'')).map(s=>`<span class="tag">${s}</span>`).join(' ') : '';
   const timeStr = new Date(it.published).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'});
   const sumId = `sum-${i}-${Math.random().toString(36).slice(2,7)}`;
 
@@ -366,9 +367,8 @@ function buildRow(it, i){
 
   row.innerHTML = `
     <div class="time"><span class="t-full">${timeStr}</span><span class="t-short">${timeStr}</span></div>
-    <div class="title"><a href="${it.link}" target="_blank" rel="noopener">${escapeHTML(titleText)}</a></div>
+    <div class="title"><a href="${it.link}" target="_blank" rel="noopener">${escapeHTML(titleText)}</a>  ${tags}</div>
     <div class="meta">
-      <div class="tags">${tags}</div>
       <div class="source">${escapeHTML(it.source||'Unknown')}</div>
       ${summaryBtn}
     </div>
