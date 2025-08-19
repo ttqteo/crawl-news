@@ -1,0 +1,5 @@
+sources:
+  - name: "Tin Nhanh Chứng Khoán"
+    type: tnck
+    urls:
+      - "https://www.tinnhanhchungkhoan.vn/chung-khoan/"

@@ -22,3 +22,7 @@ sources:
     type: vnexpress
     urls:
       - "https://vnexpress.net/rss/kinh-doanh.rss"
+  - name: "Tin Nhanh Chứng Khoán"
+    type: tnck
+    urls:
+      - "https://www.tinnhanhchungkhoan.vn/chung-khoan/"

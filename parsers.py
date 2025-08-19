@@ -256,6 +256,121 @@ class VnExpressParser(BaseParser):
                 "raw": e,
             }
 
+import requests
+from urllib.parse import urljoin
+
+class TinNhanhChungKhoanHTMLParser(BaseParser):
+    """
+    Crawl listing pages on tinnhanhchungkhoan.vn, then open each article page.
+    Extract: guid/link/title/summary/image/published (UTC aware).
+    """
+    ARTICLE_RE = re.compile(
+        r"^https?://(?:www\.|m\.)?tinnhanhchungkhoan\.vn/.+-post\d+\.html$",
+        re.IGNORECASE,
+    )
+
+    def _fetch(self, url: str, timeout: int = 15) -> str:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (compatible; tnck-crawler/1.0)"
+        }
+        r = requests.get(url, headers=headers, timeout=timeout)
+        r.raise_for_status()
+        return r.text
+
+    def _resolve_article_urls(self, list_html: str, base_url: str) -> List[str]:
+        soup = BeautifulSoup(list_html, "lxml")
+        links = set()
+
+        # 🔑 restrict to <div class="main-column">
+        main_col = soup.select_one("div.main-column")
+        if not main_col:
+            return []
+
+        for a in main_col.select("a[href]"):
+            href = urljoin(base_url, a["href"])
+            if self.ARTICLE_RE.match(href):
+                links.add(href.split("#")[0])
+
+        return sorted(links)
+
+
+    def _first_paragraph(self, soup: BeautifulSoup) -> str:
+        # Try common article body containers; fall back to meta description
+        containers = [
+            "div.detail-content", "div.content-detail", "div.article__content",
+            "div.main-article", "div#contentdetail", "article"
+        ]
+        for sel in containers:
+            node = soup.select_one(sel)
+            if not node:
+                continue
+            p = node.find("p")
+            if p:
+                return _clean_html_text(str(p))
+        md = soup.find("meta", attrs={"name": "description"})
+        return (md.get("content", "").strip() if md else "") or ""
+
+    def _parse_published(self, soup: BeautifulSoup) -> datetime:
+        # Prefer meta timestamps
+        for prop in ("article:published_time", "og:updated_time", "pubdate"):
+            m = soup.find("meta", attrs={"property": prop}) or soup.find("meta", attrs={"name": prop})
+            if m and m.get("content"):
+                try:
+                    return dtparse.parse(m["content"]).astimezone(timezone.utc)
+                except Exception:
+                    pass
+        # Fallback visible time like 30/07/2025 15:46
+        tnode = soup.find(["time", "span", "div"], string=re.compile(r"\d{1,2}/\d{1,2}/\d{4}"))
+        if tnode:
+            try:
+                return dtparse.parse(tnode.get_text(" ", strip=True), dayfirst=True).astimezone(timezone.utc)
+            except Exception:
+                pass
+        return datetime.now(timezone.utc)
+
+    def _extract_image(self, soup: BeautifulSoup) -> Optional[str]:
+        og = soup.find("meta", attrs={"property": "og:image"})
+        if og and og.get("content"):
+            return og["content"].strip()
+        img = soup.select_one("div.detail-content img, article img, div.main-article img")
+        return (img.get("src").strip() if img and img.get("src") else None)
+
+    def parse(self, url: str, ctx: FeedContext) -> Iterable[Dict[str, Any]]:
+        try:
+            listing_html = self._fetch(url)
+        except Exception as e:
+            print(f"[TNCK] list fetch failed: {url} -> {e}")
+            return []
+
+        article_urls = self._resolve_article_urls(listing_html, url)
+        for link in article_urls:
+            try:
+                html = self._fetch(link)
+                soup = BeautifulSoup(html, "lxml")
+
+                # title
+                title = (
+                    (soup.find("meta", attrs={"property": "og:title"}) or {}).get("content")
+                    or (soup.find("h1") or {}).get_text(strip=True)
+                    or ""
+                ).strip()
+
+                # summary, image, time
+                summary = self._first_paragraph(soup)
+                image = self._extract_image(soup)
+                published = self._parse_published(soup)
+
+                yield {
+                    "guid": link,
+                    "link": link,
+                    "title": title,
+                    "summary": summary,
+                    "published": published,   # aware datetime (UTC)
+                    "image": image,
+                }
+            except Exception as e:
+                print(f"[TNCK] skip {link}: {e}")
+                continue
 
 # ---------- registry & accessor ----------
 
@@ -265,6 +380,7 @@ PARSER_REGISTRY = {
     "markettimes": MarketTimesParser(),
     "nguoiquansat": NguoiQuanSatParser(),
     "vnexpress": VnExpressParser(),
+    "tnck": TinNhanhChungKhoanHTMLParser(),
 }
 
 def get_parser(source_type: str) -> BaseParser:
