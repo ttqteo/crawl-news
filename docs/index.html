@@ -55,10 +55,10 @@
   .row .time{color:var(--muted-2);font-variant-numeric:tabular-nums;font-size:10px;line-height:auto;}
   .row .title a{color:var(--text);text-decoration:none}
   .row .title a:hover{color:var(--accent-2);text-decoration:underline}
-  .row .tags{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-start}
+  .row .tags{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-start;}
   /* allow wrapping container that doesn't affect desktop grid placement */
   .row .meta{display:contents}
-  .tag{border:1px solid var(--border);padding:1px 4px;border-radius:999px;font-size:.72rem;color:#1e40af;background:#eef2ff;white-space:nowrap}
+  .tag{padding:1px 5px;border-radius:999px;font-size:.72rem;color:#1e40af;background:#eef2ff;white-space:nowrap;margin-left:2px;}
   .row .source{color:var(--muted-2);text-align:right;font-size:10px;}
   .row:hover{border-color:var(--accent)}
   /* default time display: show full, hide short */
@@ -104,6 +104,9 @@
   @media (prefers-reduced-motion: reduce){
     .skel-thumb, .skel-line{ animation: none; background: #eaecef; }
   }
+
+  .source{ display:flex; align-items:center; gap:6px; }
+  .source-logo{ width:16px; height:16px; object-fit:contain; border-radius:4px; }
 
   /* Mobile */
   @media (max-width:640px){
@@ -340,8 +343,25 @@ function buildCard(it){
 const HIGHLIGHT_TITLE = [
   "Đọc gì trước giờ giao dịch chứng khoán",
   "Vietstock Daily",
-  "IPO",
 ]
+const MARKET_TITLE = [
+  "Trước giờ giao dịch",
+]
+const IDEA_TITLE = [
+  "Khuyến nghị"
+]
+const SOURCE_TYPE_BY_SOURCE = {
+  'Vietstock': 'vietstock',
+  'Markettimes': 'markettimes',
+  'Người Quan Sát': 'nguoiquansat',
+  'VnExpress': 'vnexpress',
+  'Tin Nhanh Chứng Khoán': 'tnck',
+};
+function slugify(s){
+  return (s||'')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')  // strip accents
+    .toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
+}
 function buildRow(it, i){
   const row=document.createElement('div'); row.className='row';
   // For desktop popover:
@@ -358,18 +378,33 @@ function buildRow(it, i){
 
   let titleText = it.title;
   for(const pat of HIGHLIGHT_TITLE){
-    const re = new RegExp(pat, 'i'); // case-insensitive
-    if(re.test(titleText)){
-      titleText += ' ⭐'; // add star
-      break;
-    }
+    const re = new RegExp(pat, 'i');
+    if(re.test(titleText)){ titleText += ' ⭐'; break; }
   }
+
+  for(const pat of MARKET_TITLE){
+    const re = new RegExp(pat, 'i');
+    if(re.test(titleText)){ titleText += ' ⏰'; break; }
+  }
+
+  for(const pat of IDEA_TITLE){
+    const re = new RegExp(pat, 'i');
+    if(re.test(titleText)){ titleText += ' 💡'; break; }
+  }
+
+  // 🔑 compute logo by source_type → fallback map → slug of source
+  const sourceType = it.source_type || SOURCE_TYPE_BY_SOURCE[it.source] || slugify(it.source);
+  const logoUrl = `assets/images/${sourceType}.png`;
 
   row.innerHTML = `
     <div class="time"><span class="t-full">${timeStr}</span><span class="t-short">${timeStr}</span></div>
-    <div class="title"><a href="${it.link}" target="_blank" rel="noopener">${escapeHTML(titleText)}</a>  ${tags}</div>
+    <div class="title"><a href="${it.link}" target="_blank" rel="noopener">${escapeHTML(titleText)}</a> ${tags}</div>
     <div class="meta">
-      <div class="source">${escapeHTML(it.source||'Unknown')}</div>
+      <div class="source">
+        <img class="source-logo" src="${logoUrl}" alt="${sourceType}" loading="lazy"
+             onerror="this.style.display='none'">
+        <span class="source-name">${escapeHTML(it.source||'Unknown')}</span>
+      </div>
       ${summaryBtn}
     </div>
     <div id="${sumId}" class="row-summary">${escapeHTML(it.summary||'')}</div>
