@@ -274,7 +274,7 @@ async function loadSymbols(){
     );
   } catch(e) { /* optional */ }
 }
-const SKIP_SYMBOLS = new Set(['TIN','USD','THU','VND','CEO','THA','MTL','NET','TOP','HCM','TRA','HAI']);
+const SKIP_SYMBOLS = new Set(['TIN','USD','THU','VND','CEO','THA','MTL','NET','TOP','HCM','TRA','HAI','LAI','THI','BIG','VUA']);
 function findSymbols(text){
   if(!text || SYMBOLS_SET.size === 0) return [];
   
