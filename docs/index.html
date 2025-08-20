@@ -168,7 +168,7 @@
   }
 </style>
 <style>
-  .layout{ max-width:1200px; margin:12px auto; padding:0 14px; }
+  .layout{ max-width:1000px; margin:12px auto; padding:0 14px; }
 
   /* When side panel is open (desktop), switch to 2 columns */
   @media (min-width:641px){
@@ -222,7 +222,7 @@
       <img src="assets/images/icon.jpg" alt="Logo" />
     </a>
     <select id="dateSelect" title="Chọn ngày"></select>
-    <input id="searchInput" placeholder="Tìm tiêu đề/tóm tắt…" style="flex:1" />
+    <input id="searchInput" placeholder="Tìm tiêu đề" style="flex:1" />
     <button id="btnCancelSearch" class="ghost" title="Đóng tìm kiếm"><i class="fa-solid fa-xmark"></i></button>
     <button id="btnClear" class="ghost" style="display: none">Xoá</button>
     <select id="viewModeSel" title="Chế độ hiển thị">
@@ -413,9 +413,10 @@ function buildCard(it, i){
 }
 
 const HIGHLIGHT_TITLE = [
-  "Đọc gì trước giờ giao dịch chứng khoán",
   "Vietstock Daily",
-  "Nhịp đập Thị trường"
+  "Nhịp đập Thị trường",
+  "Sự kiện chứng khoán đáng chú ý",
+  "Thị trường tài chính 24h"
 ]
 const MARKET_TITLE = [
   "Trước giờ giao dịch",
@@ -558,7 +559,6 @@ function resetAndRender(){
       await ensureFilled(rendered + BATCH);
       if (PERF.USE_SKELETON) hideSkeleton();
       renderBatch();
-      initSidePanel();
     }
   }, { rootMargin:'600px', threshold:0.01 });
 
@@ -572,20 +572,34 @@ function canFillMore(){
 }
 
 // ==================== FILTERING & FILLING ====================
+function removeDiacritics(str){
+  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
 function filterPredicate(it){
   const q = (searchInput.value||'').trim().toLowerCase();
   if(q){
-    const text=(it.title).toLowerCase();
-    if(!text.includes(q)) return false;
+    const text = (it.title || "").toLowerCase();
+
+    // bỏ dấu ở cả query và title
+    const normText = removeDiacritics(text);
+    const normQuery = removeDiacritics(q);
+
+    if(!normText.includes(normQuery)) return false;
   }
+
   if(state.selectedSources.size){
-    if(!state.selectedSources.has(it.source||'Unknown')) return false;
+    if(!state.selectedSources.has(it.source || 'Unknown')) return false;
   }
+
   if(state.timeWindow!=='all'){
-    const now=Date.now();
-    const ms = state.timeWindow==='24h'? 24*3600*1000 : state.timeWindow==='3d'? 3*86400*1000 : 7*86400*1000;
+    const now = Date.now();
+    const ms = state.timeWindow==='24h' ? 24*3600*1000 
+             : state.timeWindow==='3d' ? 3*86400*1000 
+             : 7*86400*1000;
     if((now - new Date(it.published).getTime()) > ms) return false;
   }
+
   return true;
 }
 
@@ -760,7 +774,13 @@ newsList.addEventListener('mouseover', (e)=>{
 });
 
 newsList.addEventListener('mouseout', (e)=>{
-  if (!e.relatedTarget || !newsList.contains(e.relatedTarget)) hidePopover();
+  if (!e.relatedTarget || !newsList.contains(e.relatedTarget)) {
+    hidePopover();
+    spTitle.innerHTML = 'Di chuột vào một tin để xem tóm tắt…';
+    spSummary.innerHTML = '';
+    spTags.innerHTML = '';
+    spMeta.innerHTML = '';
+  };
 });
 // Mobile-only: toggle summary panel when tapping the caret button
 newsList.addEventListener('click', (e)=>{
@@ -830,12 +850,6 @@ function setSidePanel(it){
   const logoUrl = `assets/images/${sourceType}.png`;
   spMeta.innerHTML = `<div class="source"><img class="source-logo" src="${logoUrl}" alt="${sourceType}" loading="lazy"
              onerror="this.style.display='none'">${escapeHTML(src)}</div><div>${time}</div>`;
-}
-
-function initSidePanel(){
-  if(document.body.classList.contains('side-open') && state.view.length){
-    setSidePanel(state.view[0]); // show first item so panel isn’t empty
-  }
 }
 
 
