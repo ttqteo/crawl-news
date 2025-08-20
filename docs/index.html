@@ -60,6 +60,7 @@
   .row .meta{display:contents}
   .tag{padding:1px 5px;border-radius:999px;font-size:.72rem;color:#1e40af;background:#eef2ff;white-space:nowrap;margin-left:4px;font-weight: 750;}
   .sp-tags .tag{margin-left: 0!important;}
+  .card-tags .tag{margin-left: 0!important;}
   .row .source{color:var(--muted-2);text-align:right;font-size:10px;}
   .row:hover{border-color:var(--accent)}
   /* default time display: show full, hide short */
@@ -391,7 +392,22 @@ async function fetchJSON(url){
 const BATCH = PERF.BATCH;
 let rendered=0, observer=null, sentinel=null;
 
-// after:
+function buildSource(it) {
+  const sourceType = it.source_type || SOURCE_TYPE_BY_SOURCE[it.source] || slugify(it.source);
+  const logoUrl = `assets/images/${sourceType}.png`;
+  return `<div class="source">
+        <img class="source-logo" src="${logoUrl}" alt="${sourceType}" loading="lazy"
+             onerror="this.style.display='none'">
+        <span class="source-name">${escapeHTML(it.source||'Unknown')}</span>
+      </div>`;
+}
+
+function buildTags(it) {
+  const willTag = dateSelect.value !== 'all' || PERF.ENABLE_SYMBOLS_IN_ALL;
+  const tags = willTag ? findSymbols(it.title + ';' + (it.summary||'')).map(s=>`<span class="tag">${s}</span>`).join(' ') : '';
+  return tags;
+}
+
 function buildCard(it, i){
   const hasImg = !!it.image;
   const card = document.createElement('article');
@@ -399,15 +415,13 @@ function buildCard(it, i){
   card.dataset.idx = i;
   card.setAttribute('data-summary', (it.summary||'').replace(/\n/g,' '));
 
-  const left = hasImg
-    ? `<div class="thumb-wrap"><img class="thumb" loading="lazy" decoding="async" src="${it.image}" alt=""></div>`
-    : '';
-  const cls = hasImg ? 'content' : 'content full';
-  card.innerHTML = `${left}
-    <div class="${cls}">
+  card.innerHTML = `<div class="thumb-wrap">
+    <img class="thumb" loading="lazy" decoding="async" src="${hasImg ? it.image : "assets/images/no-image.webp"}" alt=""></div>
+    <div class="content">
       <h3 class="title"><a href="${it.link}" target="_blank" rel="noopener">${escapeHTML(it.title)}</a></h3>
       <p class="summary clamp">${escapeHTML(it.summary||'')}</p>
-      <div class="meta"><span>${escapeHTML(it.source||'Unknown')}</span><span>${new Date(it.published).toLocaleString('vi-VN')}</span></div>
+      <div class="card-tags">${buildTags(it)}</div>
+      <div class="meta">${buildSource(it)}<span>${new Date(it.published).toLocaleString('vi-VN')}</span></div>
     </div>`;
   return card;
 }
@@ -443,8 +457,6 @@ function buildRow(it, i){
   // For desktop popover:
   row.setAttribute('data-summary', (it.summary||'').replace(/\n/g,' '));
 
-  const willTag = dateSelect.value !== 'all' || PERF.ENABLE_SYMBOLS_IN_ALL;
-  const tags = willTag ? findSymbols(it.title + ';' + (it.summary||'')).map(s=>`<span class="tag">${s}</span>`).join(' ') : '';
   const timeStr = new Date(it.published).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'});
   const sumId = `sum-${i}-${Math.random().toString(36).slice(2,7)}`;
 
@@ -468,19 +480,11 @@ function buildRow(it, i){
     if(re.test(titleText)){ titleText += ' 💡'; break; }
   }
 
-  // 🔑 compute logo by source_type → fallback map → slug of source
-  const sourceType = it.source_type || SOURCE_TYPE_BY_SOURCE[it.source] || slugify(it.source);
-  const logoUrl = `assets/images/${sourceType}.png`;
-
   row.innerHTML = `
     <div class="time"><span class="t-full">${timeStr}</span><span class="t-short">${timeStr}</span></div>
-    <div class="title"><a href="${it.link}" target="_blank" rel="noopener">${escapeHTML(titleText)}</a> ${tags}</div>
+    <div class="title"><a href="${it.link}" target="_blank" rel="noopener">${escapeHTML(titleText)}</a> ${buildTags(it)}</div>
     <div class="meta">
-      <div class="source">
-        <img class="source-logo" src="${logoUrl}" alt="${sourceType}" loading="lazy"
-             onerror="this.style.display='none'">
-        <span class="source-name">${escapeHTML(it.source||'Unknown')}</span>
-      </div>
+      ${buildSource(it)}
       ${summaryBtn}
     </div>
     <div id="${sumId}" class="row-summary">${escapeHTML(it.summary||'')}</div>
@@ -840,17 +844,12 @@ function setSidePanel(it){
   ? `<a href="${it.link}" target="_blank" rel="noopener">${escapeHTML(it.title)}</a>`
   : escapeHTML(it.title);
 
-  const willTag = dateSelect.value !== 'all' || PERF.ENABLE_SYMBOLS_IN_ALL;
-  const tags = willTag ? findSymbols(it.title + ';' + (it.summary||'')).map(s=>`<span class="tag">${s}</span>`).join(' ') : '';
-  spTags.innerHTML = tags;
+  spTags.innerHTML = buildTags(it);
 
   spSummary.textContent = it.summary || '';
 
   const time = new Date(it.published).toLocaleString('vi-VN');
-  const sourceType = it.source_type || SOURCE_TYPE_BY_SOURCE[it.source] || slugify(it.source);
-  const logoUrl = `assets/images/${sourceType}.png`;
-  spMeta.innerHTML = `<div class="source"><img class="source-logo" src="${logoUrl}" alt="${sourceType}" loading="lazy"
-             onerror="this.style.display='none'">${escapeHTML(src)}</div><div>${time}</div>`;
+  spMeta.innerHTML = `${buildSource(it)}<span>${time}</span>`;
 }
 
 
