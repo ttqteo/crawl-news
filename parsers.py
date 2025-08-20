@@ -11,7 +11,10 @@ from bs4 import BeautifulSoup
 from dateutil import parser as dtparse
 import re
 
+from datetime import datetime, timezone, timedelta  # add timedelta
+
 BR_RE = re.compile(r'</?br\s*/?>', flags=re.I)
+VN_TZ = timezone(timedelta(hours=7))
 
 # ---------- local utilities (self-contained to avoid circular imports) ----------
 
@@ -58,20 +61,29 @@ def _first_media_url(e: dict) -> Optional[str]:
         return url.strip() if isinstance(url, str) else None
     return None
 
+def _to_utc_assume_vn(dt: datetime) -> datetime:
+    """Return UTC datetime; if naive, assume Asia/Ho_Chi_Minh (+07:00)."""
+    if not isinstance(dt, datetime):
+        return datetime.now(timezone.utc)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=VN_TZ)
+    return dt.astimezone(timezone.utc)
+
 def _parse_ts(entry: Dict[str, Any]) -> datetime:
-    """Robust timestamp parsing (UTC). Mirrors your app.py logic."""
     for key in ("published", "pubDate", "updated"):
         v = entry.get(key)
         if v:
             try:
-                return dtparse.parse(v).astimezone(timezone.utc)
+                dt = dtparse.parse(v)
+                return _to_utc_assume_vn(dt)   # << use helper
             except Exception:
                 pass
     for key in ("published_parsed", "updated_parsed"):
         st = entry.get(key)
         if st:
             try:
-                return datetime(*st[:6], tzinfo=timezone.utc)
+                dt = datetime(*st[:6])
+                return _to_utc_assume_vn(dt)   # << use helper
             except Exception:
                 pass
     return datetime.now(timezone.utc)
@@ -326,6 +338,7 @@ class TinNhanhChungKhoanHTMLParser(BaseParser):
                 return dtparse.parse(tnode.get_text(" ", strip=True), dayfirst=True).astimezone(timezone.utc)
             except Exception:
                 pass
+            
         return datetime.now(timezone.utc)
 
     def _extract_image(self, soup: BeautifulSoup) -> Optional[str]:
@@ -372,6 +385,188 @@ class TinNhanhChungKhoanHTMLParser(BaseParser):
                 print(f"[TNCK] skip {link}: {e}")
                 continue
 
+class VnEconomyHTMLParser(BaseParser):
+    """
+    Crawl listing pages on vneconomy.vn (e.g. /chung-khoan.htm), then open each
+    article page and extract title/summary/image/published (UTC).
+    """
+
+    # Accept normal and www. subdomain; accept any .htm article (exclude obvious hubs)
+    ARTICLE_RE = re.compile(
+        r"^https?://(?:www\.)?vneconomy\.vn/(?!chu-de/|tag/|video/|photo/)[^?#]+\.htm$",
+        re.IGNORECASE,
+    )
+
+    def _fetch(self, url: str, timeout: int = 15) -> str:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (compatible; vneco-crawler/1.0)",
+            "Accept-Language": "vi,en;q=0.8",
+        }
+        r = requests.get(url, headers=headers, timeout=timeout)
+        r.raise_for_status()
+        return r.text
+
+    def _normalize_href(self, href: str) -> str:
+        # strip query/hash + any whitespace/zero-width
+        href = href.split("?", 1)[0].split("#", 1)[0]
+        return "".join(href.split())
+
+    def _resolve_article_urls(self, list_html: str, base_url: str) -> List[str]:
+        soup = BeautifulSoup(list_html, "lxml")
+        links: set[str] = set()
+
+        # Exclude anything inside the top nav
+        header_nav = soup.select_one(".layout-header-menu-main")
+
+        # 🔒 Only crawl featured cards
+        # If the page sometimes uses just one of these classes, include fallbacks:
+        card_selectors = [
+            ".featured-row_item.featured-column_item",
+            ".featured-column_item",
+            ".featured-row_item",
+        ]
+
+        cards = []
+        for sel in card_selectors:
+            cards.extend(soup.select(sel))
+
+        # De-dup card nodes while preserving order
+        seen_ids = set()
+        uniq_cards = []
+        for c in cards:
+            if id(c) in seen_ids: continue
+            uniq_cards.append(c); seen_ids.add(id(c))
+
+        # Known unwanted menu labels
+        skip_titles = {
+            "Thị trường - VnEconomy",
+            "Multimedia - VnEconomy",
+        }
+
+        for card in uniq_cards:
+            # Prefer the first anchor in each card as the main article link
+            a = card.find("a", href=True)
+            if not a:
+                continue
+
+            # Skip if the anchor is in the header menu area
+            if header_nav and a.find_parent(class_="layout-header-menu-main"):
+                continue
+
+            # Skip by text guard (backup)
+            t = (a.get_text(" ", strip=True) or "")
+            if t in skip_titles or t.endswith(" - VnEconomy"):
+                continue
+
+            href = urljoin(base_url, a["href"])
+            norm = self._normalize_href(href)
+
+            # Keep only real article pages
+            if self.ARTICLE_RE.search(norm):
+                links.add(norm)
+
+        return sorted(links)
+
+    def _first_paragraph(self, soup: BeautifulSoup) -> str:
+        # Try common article content containers
+        body_selectors = [
+            "article", "div.article__content", "div.detail-content",
+            "div.content-detail", "div.detail__content", "div#contentdetail"
+        ]
+        for sel in body_selectors:
+            node = soup.select_one(sel)
+            if not node:
+                continue
+            p = node.find("p")
+            if p:
+                return _clean_html_text(str(p))
+        # Fallback to meta description
+        md = soup.find("meta", attrs={"name": "description"})
+        return (md.get("content", "").strip() if md else "") or ""
+
+    def _parse_published(self, soup: BeautifulSoup) -> datetime:
+        SHIFT = timedelta(hours=7)
+
+        def minus7_utc(dt: datetime) -> datetime:
+            # ensure aware → UTC, then subtract 7h
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)  # treat naive as UTC before shifting
+            dt = dt.astimezone(timezone.utc)
+            return dt - SHIFT  # final is still tz-aware (UTC)
+
+        # Prefer meta timestamps
+        for prop in ("article:published_time", "og:updated_time", "pubdate"):
+            m = soup.find("meta", attrs={"property": prop}) or soup.find("meta", attrs={"name": prop})
+            if m and m.get("content"):
+                try:
+                    dt = dtparse.parse(m["content"])
+                    return minus7_utc(dt)
+                except Exception:
+                    pass
+
+        # <time datetime="...">
+        t = soup.find("time", attrs={"datetime": True})
+        if t and t.get("datetime"):
+            try:
+                dt = dtparse.parse(t["datetime"])
+                return minus7_utc(dt)
+            except Exception:
+                pass
+
+        # Fallback visible time like 30/07/2025 15:46
+        tnode = soup.find(["time", "span", "div"], string=re.compile(r"\b\d{1,2}/\d{1,2}/\d{4}\b"))
+        if tnode:
+            try:
+                dt = dtparse.parse(tnode.get_text(" ", strip=True), dayfirst=True)
+                return minus7_utc(dt)
+            except Exception:
+                pass
+
+        return datetime.now(timezone.utc)
+
+    def _extract_image(self, soup: BeautifulSoup) -> Optional[str]:
+        og = soup.find("meta", attrs={"property": "og:image"})
+        if og and og.get("content"):
+            return og["content"].strip()
+        img = soup.select_one("article img, div.detail-content img, div.detail__content img")
+        return (img.get("src").strip() if img and img.get("src") else None)
+
+    def parse(self, url: str, ctx: FeedContext) -> Iterable[Dict[str, Any]]:
+        try:
+            listing_html = self._fetch(url)
+        except Exception as e:
+            print(f"[VNECO] list fetch failed: {url} -> {e}")
+            return []
+
+        article_urls = self._resolve_article_urls(listing_html, url)
+
+        for link in article_urls:
+            try:
+                html = self._fetch(link)
+                soup = BeautifulSoup(html, "lxml")
+
+                title = (
+                    (soup.find("meta", attrs={"property": "og:title"}) or {}).get("content")
+                    or (soup.find("h1") or {}).get_text(strip=True)
+                    or ""
+                ).strip()
+
+                summary = self._first_paragraph(soup)
+                image = self._extract_image(soup)
+                published = self._parse_published(soup)
+
+                yield {
+                    "guid": link,
+                    "link": link,
+                    "title": title,
+                    "summary": summary,
+                    "published": published,  # aware datetime (UTC)
+                    "image": image,
+                }
+            except Exception as e:
+                print(f"[VNECO] skip {link}: {e}")
+                continue
+
 # ---------- registry & accessor ----------
 
 PARSER_REGISTRY = {
@@ -381,6 +576,7 @@ PARSER_REGISTRY = {
     "nguoiquansat": NguoiQuanSatParser(),
     "vnexpress": VnExpressParser(),
     "tnck": TinNhanhChungKhoanHTMLParser(),
+    "vneconomy": VnEconomyHTMLParser(),
 }
 
 def get_parser(source_type: str) -> BaseParser:

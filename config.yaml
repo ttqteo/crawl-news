@@ -26,3 +26,10 @@ sources:
     type: tnck
     urls:
       - "https://www.tinnhanhchungkhoan.vn/chung-khoan/"
+  - name: "VnEconomy"
+    type: vneconomy
+    urls:
+      - "https://vneconomy.vn/chung-khoan.htm"
+      - "https://vneconomy.vn/thi-truong-chung-khoan.htm"
+      - "https://vneconomy.vn/dau-tu-chung-khoan.htm"
+      - "https://vneconomy.vn/tieu-diem.htm"
