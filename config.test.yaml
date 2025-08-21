@@ -1,7 +1,5 @@
 sources:
-  - name: "VnEconomy"
-    type: vneconomy
+  - name: "Tin Nhanh Chứng Khoán"
+    type: tnck
     urls:
-      - "https://vneconomy.vn/chung-khoan.htm"
-      - "https://vneconomy.vn/thi-truong-chung-khoan.htm"
-      - "https://vneconomy.vn/dau-tu-chung-khoan.htm"
+      - "https://www.tinnhanhchungkhoan.vn/chung-khoan/"

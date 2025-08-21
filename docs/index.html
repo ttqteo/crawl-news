@@ -255,6 +255,7 @@
       <div class="sp-summary"></div>
       <div class="sp-tags"></div>
       <div class="sp-meta"></div>
+      <div class="sp-content"></div>
     </div>
   </aside>
 </div>
@@ -410,7 +411,7 @@ function buildSource(it) {
 
 function buildTags(it) {
   const willTag = dateSelect.value !== 'all' || PERF.ENABLE_SYMBOLS_IN_ALL;
-  const tags = willTag ? findSymbols(it.title + ';' + (it.summary||'')).map(s=>`<span class="tag">${s}</span>`).join(' ') : '';
+  const tags = willTag ? findSymbols(it.title + ';' + (it.summary||'') + ';' + (it.content_text||'')).map(s=>`<span class="tag">${s}</span>`).join(' ') : '';
   return tags;
 }
 
@@ -801,6 +802,7 @@ newsList.addEventListener('mouseout', (e)=>{
     spSummary.innerHTML = '';
     spTags.innerHTML = '';
     spMeta.innerHTML = '';
+    spContent.innerHTML = '';
   };
 });
 // Mobile-only: toggle summary panel when tapping the caret button
@@ -829,6 +831,7 @@ const spTitle = sidePanel.querySelector('.sp-title');
 const spSummary = sidePanel.querySelector('.sp-summary');
 const spMeta = sidePanel.querySelector('.sp-meta');
 const spTags = sidePanel.querySelector('.sp-tags');
+const spContent = sidePanel.querySelector('.sp-content');
 
 function setSideOpen(on){
   const isMobile = window.matchMedia('(max-width:640px)').matches;
@@ -866,6 +869,8 @@ function setSidePanel(it){
 
   const time = new Date(it.published).toLocaleString('vi-VN');
   spMeta.innerHTML = `${buildSource(it)}<span>${time}</span>`;
+
+  spContent.innerHTML = it.content_html || '';
 }
 
 // ---- New item tracking ----

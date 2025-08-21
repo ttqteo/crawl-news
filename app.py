@@ -131,6 +131,8 @@ def crawl(config_path: str = "config.yaml", force: bool = False) -> None:
                     "guid": guid or link,
                     "image": image,
                     "published": published.isoformat(),
+                    "content_html": item.get("content_html") or "",
+                    "content_text": item.get("content_text") or "",
                 }
                 save_day(date_path, existing)
                 processed_items += 1

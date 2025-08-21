@@ -12,6 +12,10 @@ from dateutil import parser as dtparse
 import re
 
 from datetime import datetime, timezone, timedelta  # add timedelta
+import unicodedata
+
+import requests
+from urllib.parse import urljoin
 
 BR_RE = re.compile(r'</?br\s*/?>', flags=re.I)
 VN_TZ = timezone(timedelta(hours=7))
@@ -87,7 +91,6 @@ def _parse_ts(entry: Dict[str, Any]) -> datetime:
             except Exception:
                 pass
     return datetime.now(timezone.utc)
-
 
 # ---------- parser classes ----------
 
@@ -268,23 +271,77 @@ class VnExpressParser(BaseParser):
                 "raw": e,
             }
 
-import requests
-from urllib.parse import urljoin
-
 class TinNhanhChungKhoanHTMLParser(BaseParser):
     """
     Crawl listing pages on tinnhanhchungkhoan.vn, then open each article page.
     Extract: guid/link/title/summary/image/published (UTC aware).
+    If the title matches a “special” pattern (e.g. 'Sự kiện chứng khoán đáng chú ý ngày dd/mm'),
+    also include content_html/content_text.
     """
+
+    # Accept normal & mobile domains; accept article pages and (optionally) event pages
     ARTICLE_RE = re.compile(
-        r"^https?://(?:www\.|m\.)?tinnhanhchungkhoan\.vn/.+-post\d+\.html$",
+        r"^https?://(?:www\.|m\.)?tinnhanhchungkhoan\.vn/(?:.+-post\d+\.html|event/.+-\d+\.html)$",
         re.IGNORECASE,
     )
 
+    # --- Special title detection (extendable) ---
+    SPECIAL_TITLE_PHRASES = [
+        "Sự kiện chứng khoán đáng chú ý ngày",
+        # Add more phrases here:
+        # "Lịch sự kiện chứng khoán ngày",
+        # "Điểm nhấn chứng khoán ngày",
+    ]
+    SPECIAL_TITLE_REGEXES: List[re.Pattern] = [
+        # Add custom regex rules here if needed, e.g.
+        # re.compile(r"tong hop tin chung khoan ngay \d{1,2}/\d{1,2}(?:/\d{4})?", re.I),
+    ]
+    DATE_RE = re.compile(r"\b\d{1,2}/\d{1,2}(?:/\d{4})?\b")
+
+    # --- Helpers ---
+    @staticmethod
+    def _fold(s: str) -> str:
+        """Lowercase & remove Vietnamese accents."""
+        if not s:
+            return ""
+        import unicodedata
+        s = unicodedata.normalize("NFD", s)
+        s = "".join(ch for ch in s if unicodedata.category(ch) != "Mn")
+        return s.lower()
+
+    @classmethod
+    def _norm_letters_digits_slash(cls, s: str) -> str:
+        """Fold, then reduce to letters/digits/slash; collapse spaces."""
+        f = cls._fold(s)
+        f = re.sub(r"[^a-z0-9/]+", " ", f)
+        return re.sub(r"\s+", " ", f).strip()
+
+    @classmethod
+    def _is_special_title(cls, title: str) -> bool:
+        t = cls._norm_letters_digits_slash(title)
+        if any(cls._norm_letters_digits_slash(p) in t for p in cls.SPECIAL_TITLE_PHRASES) and cls.DATE_RE.search(t):
+            return True
+        return any(r.search(cls._fold(title)) for r in cls.SPECIAL_TITLE_REGEXES)
+
+    @staticmethod
+    def _normalize_href(href: str) -> str:
+        """Strip query/hash and all whitespace (incl. zero-width)."""
+        href = href.split("?", 1)[0].split("#", 1)[0]
+        return "".join(href.split())
+
+    @staticmethod
+    def _to_utc_assume_vn(dt: datetime) -> datetime:
+        """Convert to UTC; if naive, assume Asia/Ho_Chi_Minh (+07)."""
+        from datetime import timedelta
+        VN_TZ = timezone(timedelta(hours=7))
+        if not isinstance(dt, datetime):
+            return datetime.now(timezone.utc)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=VN_TZ)
+        return dt.astimezone(timezone.utc)
+
     def _fetch(self, url: str, timeout: int = 15) -> str:
-        headers = {
-            "User-Agent": "Mozilla/5.0 (compatible; tnck-crawler/1.0)"
-        }
+        headers = {"User-Agent": "Mozilla/5.0 (compatible; tnck-crawler/1.0)"}
         r = requests.get(url, headers=headers, timeout=timeout)
         r.raise_for_status()
         return r.text
@@ -293,21 +350,21 @@ class TinNhanhChungKhoanHTMLParser(BaseParser):
         soup = BeautifulSoup(list_html, "lxml")
         links = set()
 
-        # 🔑 restrict to <div class="main-column">
+        # 🔒 Restrict to main content area
         main_col = soup.select_one("div.main-column")
         if not main_col:
             return []
 
         for a in main_col.select("a[href]"):
             href = urljoin(base_url, a["href"])
-            if self.ARTICLE_RE.match(href):
-                links.add(href.split("#")[0])
+            norm = self._normalize_href(href)
+            if self.ARTICLE_RE.search(norm):
+                links.add(norm)
 
         return sorted(links)
 
-
     def _first_paragraph(self, soup: BeautifulSoup) -> str:
-        # Try common article body containers; fall back to meta description
+        # Try article body containers; fall back to meta description
         containers = [
             "div.detail-content", "div.content-detail", "div.article__content",
             "div.main-article", "div#contentdetail", "article"
@@ -323,22 +380,34 @@ class TinNhanhChungKhoanHTMLParser(BaseParser):
         return (md.get("content", "").strip() if md else "") or ""
 
     def _parse_published(self, soup: BeautifulSoup) -> datetime:
-        # Prefer meta timestamps
+        # Prefer meta timestamps; tolerate missing tz by assuming VN time
         for prop in ("article:published_time", "og:updated_time", "pubdate"):
             m = soup.find("meta", attrs={"property": prop}) or soup.find("meta", attrs={"name": prop})
             if m and m.get("content"):
                 try:
-                    return dtparse.parse(m["content"]).astimezone(timezone.utc)
+                    dt = dtparse.parse(m["content"])
+                    return self._to_utc_assume_vn(dt)
                 except Exception:
                     pass
-        # Fallback visible time like 30/07/2025 15:46
+
+        # Try <time datetime="...">
+        t = soup.find("time", attrs={"datetime": True})
+        if t and t.get("datetime"):
+            try:
+                dt = dtparse.parse(t["datetime"])
+                return self._to_utc_assume_vn(dt)
+            except Exception:
+                pass
+
+        # Fallback visible time like "30/07/2025 15:46"
         tnode = soup.find(["time", "span", "div"], string=re.compile(r"\d{1,2}/\d{1,2}/\d{4}"))
         if tnode:
             try:
-                return dtparse.parse(tnode.get_text(" ", strip=True), dayfirst=True).astimezone(timezone.utc)
+                dt = dtparse.parse(tnode.get_text(" ", strip=True), dayfirst=True)
+                return self._to_utc_assume_vn(dt)
             except Exception:
                 pass
-            
+
         return datetime.now(timezone.utc)
 
     def _extract_image(self, soup: BeautifulSoup) -> Optional[str]:
@@ -348,43 +417,80 @@ class TinNhanhChungKhoanHTMLParser(BaseParser):
         img = soup.select_one("div.detail-content img, article img, div.main-article img")
         return (img.get("src").strip() if img and img.get("src") else None)
 
+    def _extract_full_html(self, soup: BeautifulSoup) -> str:
+        """Return cleaned article body HTML (for special titles)."""
+        containers = [
+            "div.article__body"
+        ]
+        node = None
+        for sel in containers:
+            node = soup.select_one(sel)
+            if node:
+                break
+        if not node:
+            return ""
+
+        # Remove noise
+        for bad in node.select(
+            "script, style, .social-share, .related, .related-news, .tags, .tag, .author, .fb_iframe_widget"
+        ):
+            bad.decompose()
+
+        return str(node)
+
     def parse(self, url: str, ctx: FeedContext) -> Iterable[Dict[str, Any]]:
+        # 1) Fetch the listing page
         try:
             listing_html = self._fetch(url)
         except Exception as e:
             print(f"[TNCK] list fetch failed: {url} -> {e}")
             return []
 
+        # 2) Extract article links
         article_urls = self._resolve_article_urls(listing_html, url)
+
+        # 3) Visit each article
         for link in article_urls:
             try:
                 html = self._fetch(link)
                 soup = BeautifulSoup(html, "lxml")
 
-                # title
                 title = (
                     (soup.find("meta", attrs={"property": "og:title"}) or {}).get("content")
                     or (soup.find("h1") or {}).get_text(strip=True)
                     or ""
                 ).strip()
 
-                # summary, image, time
                 summary = self._first_paragraph(soup)
                 image = self._extract_image(soup)
                 published = self._parse_published(soup)
+
+                # Full content only for special titles
+                content_html = None
+                content_text = None
+                if self._is_special_title(title):
+                    content_html = self._extract_full_html(soup)
+                    if content_html:
+                        content_text = _clean_html_text(content_html)
+                        # (Optional) Upgrade summary when it's too short/empty
+                        if content_text and (not summary or len(summary) < 60):
+                            summary = " ".join(content_text.split()[:60])
 
                 yield {
                     "guid": link,
                     "link": link,
                     "title": title,
                     "summary": summary,
-                    "published": published,   # aware datetime (UTC)
+                    "published": published,   # aware UTC datetime
                     "image": image,
+                    # present only on special titles
+                    "content_html": content_html,
+                    "content_text": content_text,
                 }
+
             except Exception as e:
                 print(f"[TNCK] skip {link}: {e}")
                 continue
-
 class VnEconomyHTMLParser(BaseParser):
     """
     Crawl listing pages on vneconomy.vn (e.g. /chung-khoan.htm), then open each
