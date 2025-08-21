@@ -2,7 +2,7 @@
 <html lang="vi" data-theme="auto">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <title>news crawler /w @ttqteo</title>
 <link rel="icon" href="assets/images/icon.jpg" type="image/jpeg" />
 <link rel="apple-touch-icon" href="assets/images/icon.jpg" />
@@ -221,6 +221,49 @@
     to   { background: transparent; }
   }
 </style>
+<style>
+/* --- Source filter (icon chips) --- */
+.filters{ display:flex; gap:6px; align-items:center; overflow:auto; padding:2px 0; }
+.filters::-webkit-scrollbar{ display:none; }
+.filters .fbtn{
+  display:inline-flex; align-items:center; gap:6px;
+  padding:6px 10px; border:1px solid var(--border); border-radius:999px;
+  background:transparent; color:var(--text); cursor:pointer; white-space:nowrap; font-weight:600;
+}
+.filters .fbtn i{ font-size:12px; }
+.filters .fbtn.active{ background:var(--accent); border-color:var(--accent); color:#fff; }
+@media (max-width:640px){
+  .filters{ display:none; } /* ẩn trên mobile nếu muốn gọn */
+}
+
+/* --- Read / Unread --- */
+.row.is-unread, .card.is-unread{ border-color: var(--accent); }
+.row.is-read .title a, .card.is-read .title a{ opacity:.78; }
+.row.is-unread .title::before, .card.is-unread .title::before{
+  content:""; display:inline-block; width:6px; height:6px; border-radius:50%;
+  background:var(--accent); margin-right:6px; transform:translateY(-1px);
+}
+
+/* --- Badge NEW --- */
+.badge-new{
+  display:inline-block; margin-left:6px; padding:2px 6px; border-radius:999px;
+  font-size:10px; font-weight:700; letter-spacing:.3px;
+  color:#0b1220; background:#93c5fd; /* nhạt ở dark mode cũng đủ tương phản */
+}
+[data-theme="dark"] .badge-new{ color:#0b1220; }
+
+/* --- Scroll to top button --- */
+.top-btn{
+  position:fixed; right:16px; bottom:16px; z-index:40;
+  width:40px; height:40px; border-radius:999px;
+  display:none; align-items:center; justify-content:center;
+  border:1px solid var(--border); background:var(--card); color:var(--text);
+  box-shadow:0 8px 24px rgba(0,0,0,.18); cursor:pointer;
+}
+.top-btn.show{ display:flex; }
+.top-btn:hover{ background:var(--accent); color:#fff; border-color:var(--accent); }
+#sourceSelect{ max-width: 180px; }
+</style>
 </head>
 <body>
 <header>
@@ -229,6 +272,9 @@
       <img src="assets/images/icon.jpg" alt="Logo" />
     </a>
     <select id="dateSelect" title="Chọn ngày"></select>
+    <select id="sourceSelect" title="Lọc theo nguồn">
+      <option value="__all__">Tất cả nguồn</option>
+    </select>    
     <input id="searchInput" placeholder="Tìm tiêu đề" style="flex:1" />
     <button id="btnCancelSearch" class="ghost" title="Đóng tìm kiếm"><i class="fa-solid fa-xmark"></i></button>
     <button id="btnClear" class="ghost" style="display: none">Xoá</button>
@@ -262,6 +308,10 @@
 
 <div id="popover" class="popover" aria-hidden="true"></div>
 
+<button id="btnTop" class="top-btn" title="Lên đầu trang" aria-label="Lên đầu trang">
+  <i class="fa-solid fa-arrow-up"></i>
+</button>
+
 <script>
 // ==================== CONFIG & STATE ====================
 const PERF = {
@@ -271,7 +321,30 @@ const PERF = {
   ENABLE_SYMBOLS_IN_ALL: true // symbol tagging is heavy; keep off in "all"
 };
 
+const HIGHLIGHT_TITLE = [
+  "Vietstock Daily",
+  "Nhịp đập Thị trường",
+  "Sự kiện chứng khoán đáng chú ý",
+  "Thị trường tài chính 24h"
+]
+const MARKET_TITLE = [
+  "Trước giờ giao dịch",
+]
+const IDEA_TITLE = [
+  "Khuyến nghị"
+]
+const SOURCE_TYPE_BY_SOURCE = {
+  'Vietstock': 'vietstock',
+  'Markettimes': 'markettimes',
+  'Người Quan Sát': 'nguoiquansat',
+  'VnExpress': 'vnexpress',
+  'VnEconomy': 'vneconomy',
+  'Tin Nhanh Chứng Khoán': 'tnck',
+};
+
 const dateSelect = document.getElementById('dateSelect');
+const sourceSelect = document.getElementById('sourceSelect');
+const btnTop = document.getElementById('btnTop');
 const btnSearch  = document.getElementById('btnSearch');
 const searchInput= document.getElementById('searchInput');
 const btnClear   = document.getElementById('btnClear');
@@ -416,6 +489,8 @@ function buildTags(it) {
 }
 
 function buildCard(it, i){
+  const badgeHTML = isNewItem(it) ? '<span class="badge-new">NEW</span>' : '';
+
   const hasImg = !!it.image;
   const card = document.createElement('article');
   card.className = 'card';
@@ -425,7 +500,7 @@ function buildCard(it, i){
   card.innerHTML = `<div class="thumb-wrap">
     <img class="thumb" loading="lazy" decoding="async" src="${hasImg ? it.image : "assets/images/no-image.webp"}" alt=""></div>
     <div class="content">
-      <h3 class="title"><a href="${it.link}" target="_blank" rel="noopener">${escapeHTML(it.title)}</a></h3>
+      <h3 class="title"><a href="${it.link}" target="_blank" rel="noopener">${escapeHTML(it.title)} ${badgeHTML}</a></h3>
       <p class="summary clamp">${escapeHTML(it.summary||'')}</p>
       <div class="card-tags">${buildTags(it)}</div>
       <div class="meta">${buildSource(it)}<span>${new Date(it.published).toLocaleString('vi-VN')}</span></div>
@@ -433,32 +508,14 @@ function buildCard(it, i){
   return card;
 }
 
-const HIGHLIGHT_TITLE = [
-  "Vietstock Daily",
-  "Nhịp đập Thị trường",
-  "Sự kiện chứng khoán đáng chú ý",
-  "Thị trường tài chính 24h"
-]
-const MARKET_TITLE = [
-  "Trước giờ giao dịch",
-]
-const IDEA_TITLE = [
-  "Khuyến nghị"
-]
-const SOURCE_TYPE_BY_SOURCE = {
-  'Vietstock': 'vietstock',
-  'Markettimes': 'markettimes',
-  'Người Quan Sát': 'nguoiquansat',
-  'VnExpress': 'vnexpress',
-  'VnEconomy': 'vneconomy',
-  'Tin Nhanh Chứng Khoán': 'tnck',
-};
 function slugify(s){
   return (s||'')
     .normalize('NFD').replace(/[\u0300-\u036f]/g,'')  // strip accents
     .toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
 }
 function buildRow(it, i){
+  const badgeHTML = isNewItem(it) ? '<span class="badge-new">NEW</span>' : '';
+
   const row=document.createElement('div'); row.className='row';
   row.dataset.idx = i;
   // For desktop popover:
@@ -467,9 +524,11 @@ function buildRow(it, i){
   const timeStr = new Date(it.published).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'});
   const sumId = `sum-${i}-${Math.random().toString(36).slice(2,7)}`;
 
+  const summaryIcon = it.content_html ? `<i class="fa-solid fa-book"></i>` : `<i class="fa-solid fa-circle-info"></i>`;
   const summaryBtn = it.summary ? `<button class="col-toggle" aria-expanded="false" aria-controls="${sumId}" title="Xem tóm tắt">
-        <i class="fa-solid fa-circle-info"></i>
+        ${summaryIcon}
       </button>` : '';
+
 
   let titleText = it.title;
   for(const pat of HIGHLIGHT_TITLE){
@@ -489,12 +548,12 @@ function buildRow(it, i){
 
   row.innerHTML = `
     <div class="time"><span class="t-full">${timeStr}</span><span class="t-short">${timeStr}</span></div>
-    <div class="title"><a href="${it.link}" target="_blank" rel="noopener">${escapeHTML(titleText)}</a> ${buildTags(it)}</div>
+    <div class="title"><a href="${it.link}" target="_blank" rel="noopener">${escapeHTML(titleText)}</a> ${badgeHTML} ${buildTags(it)}</div>
     <div class="meta">
       ${buildSource(it)}
       ${summaryBtn}
     </div>
-    <div id="${sumId}" class="row-summary">${escapeHTML(it.summary||'')}</div>
+    <div id="${sumId}" class="row-summary">${escapeHTML(it.summary||'')}${it.content_html||''}</div>
   `;
   return row;
 }
@@ -510,6 +569,7 @@ function buildNode(i){
     }
   }
   const node = state.viewMode==='compact' ? buildRow(it, i) : buildCard(it);
+  applyReadClass(node, it);
   if (NEW_KEYS.has(itemKey(it))) node.classList.add('new-flash');
   node.dataset.idx = i;
   frag.appendChild(node);
@@ -563,6 +623,8 @@ function renderBatch(){
 }
 
 function resetAndRender(){
+  rebuildSourceOptions(state.items.length ? state.items : state.view);
+
   newsList.innerHTML=''; hideSkeleton(); rendered=0;
   if(observer){ observer.disconnect(); }
   observer = new IntersectionObserver(async (entries)=>{
@@ -660,6 +722,7 @@ async function initProgressiveAll(dates){
   state.view = [];
   state.items = [];
   state.prog = { datesQueue:[...dates], curDate:null, curItems:[], curIdx:0, ready:true };
+  rebuildSourceOptions(state.prog.curItems);
   await loadNextDateFile(); // prime first date
 }
 
@@ -721,6 +784,7 @@ async function loadDay(d){
   if(d==='all') return;
   const data = await fetchJSON('news/'+d+'.json');
   state.items = Object.values(data);
+  rebuildSourceOptions(state.items);
   applyFilterSingleDay();
 }
 
@@ -748,13 +812,24 @@ dateSelect.addEventListener('change', async ()=>{
 async function refreshNow(){
   try {
     isRefreshing = true;
+    // Lấy bộ key trước refresh để so sánh
+    const prev = new Set(state.view.map(it => itemKey(it)));
+
     if (dateSelect.value === 'all') {
       const idx = await fetchJSON('news/index.json');
       await initProgressiveAll(idx.dates || []);
-      resetAndRender();
+      // Ở chế độ "all", NEW_KEYS = khác biệt với prev của view cũ
+      NEW_KEYS = new Set();
+      // (sau resetAndRender, batch đầu sẽ hiển thị; NEW sẽ xuất hiện dần)
     } else {
-      await loadDay(dateSelect.value); // applyFilterSingleDay sẽ tự set NEW_KEYS
+      await loadDay(dateSelect.value); // sẽ set state.items + state.view
+      // So sánh view mới với prev để biết NEW
+      NEW_KEYS = new Set(
+        state.view.filter(it => !prev.has(itemKey(it))).map(itemKey)
+      );
     }
+
+    rememberSeen(); // lưu lại SEEN_KEYS nếu bạn muốn đánh dấu tất cả xem như đã thấy
     lastRefreshAt = Date.now();
   } finally {
     isRefreshing = false;
@@ -770,6 +845,22 @@ viewModeSel.addEventListener('change', ()=>{
   resetAndRender();
 });
 localStorage.setItem('viewMode', state.viewMode);
+
+// Mark as read when user clicks a link
+newsList.addEventListener('click', (e)=>{
+  const a = e.target.closest('a[href]');
+  if(!a) return;
+  const host = e.target.closest('.row, .card');
+  if(!host) return;
+  const idx = Number(host.dataset.idx);
+  const it = state.view[idx];
+  if(!it) return;
+  const k = itemKey(it);
+  SEEN_KEYS.add(k);
+  rememberSeen();
+  host.classList.remove('is-unread');
+  host.classList.add('is-read');
+}, true);
 
 // Popover: event delegation (no per-row listeners)
 newsList.addEventListener('mouseover', (e)=>{
@@ -933,6 +1024,66 @@ document.addEventListener('visibilitychange', ()=>{
 
   window.addEventListener('touchend', ()=> pulling = false, {passive:true});
 })();
+
+function applyReadClass(node, it){
+  const k = itemKey(it);
+  if (SEEN_KEYS.has(k)) {
+    node.classList.add('is-read');
+  } else {
+    node.classList.add('is-unread');
+  }
+}
+
+function isNewItem(it){
+  return NEW_KEYS.has(itemKey(it));
+}
+
+// Scroll to top
+window.addEventListener('scroll', ()=>{
+  const y = window.scrollY || document.documentElement.scrollTop;
+  btnTop.classList.toggle('show', y > 180);
+});
+btnTop.addEventListener('click', ()=>{
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+
+function rebuildSourceOptions(items = []) {
+  // Lấy danh sách nguồn từ dữ liệu + mapping sẵn có
+  const fromData = new Set(items.map(it => it.source || 'Unknown'));
+  const fromMap  = new Set(Object.keys(SOURCE_TYPE_BY_SOURCE || {}));
+  const all = new Set([...fromData, ...fromMap]);
+
+  // Nhớ lựa chọn cũ (nếu có)
+  const prev = sourceSelect.value;
+
+  // Dựng lại options
+  sourceSelect.innerHTML = '<option value="__all__">Tất cả nguồn</option>';
+  [...all].sort((a,b)=>a.localeCompare(b,'vi'))
+    .forEach(src=>{
+      const opt = document.createElement('option');
+      opt.value = src; opt.textContent = src;
+      sourceSelect.appendChild(opt);
+    });
+
+  // Khôi phục chọn cũ nếu còn hợp lệ; nếu không thì xét theo state.selectedSources
+  if (prev && [...all].includes(prev)) sourceSelect.value = prev;
+  else if (state.selectedSources.size === 1) {
+    sourceSelect.value = [...state.selectedSources][0];
+  } else {
+    sourceSelect.value = '__all__';
+  }
+}
+
+sourceSelect.addEventListener('change', ()=>{
+  const v = sourceSelect.value;
+  if (v === '__all__') {
+    state.selectedSources.clear();            // nghĩa là hiển thị tất cả
+  } else {
+    state.selectedSources = new Set([v]);     // lọc theo 1 nguồn
+  }
+  localStorage.setItem('srcSet', JSON.stringify([...state.selectedSources]));
+  runFilter();
+});
 
 // ==================== BOOT ====================
 loadIndex();
