@@ -38,7 +38,7 @@
   main{max-width:1000px;margin:12px auto;padding:0 14px}
 
   /* RICH MODE (image + summary) */
-  .card{display:grid;grid-template-columns:repeat(10,1fr);gap:12px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:10px}
+  .card{display:grid;grid-template-columns:repeat(10,1fr);gap:12px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:10px;cursor:pointer;}
   .thumb-wrap{grid-column:span 2}
   .thumb{width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:8px;background:#e2e8f0}
   .content{grid-column:span 8;display:flex;flex-direction:column;min-width:0}
@@ -51,7 +51,7 @@
   .meta{margin-top:auto;display:flex;gap:8px;justify-content:space-between;color:var(--muted-2);font-size:.86rem;padding-top:6px}
 
   /* COMPACT MODE (time | title | tags | source) */
-  .row{display:grid;grid-template-columns:35px 1fr auto auto;gap:8px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px;margin-bottom:8px}
+  .row{display:grid;grid-template-columns:35px 1fr auto auto;gap:8px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px;margin-bottom:8px;cursor:pointer;}
   .row .time{color:var(--muted-2);font-variant-numeric:tabular-nums;font-size:10px;line-height:auto;}
   .row .title a{color:var(--text);text-decoration:none}
   .row .title a:hover{color:var(--accent-2);text-decoration:underline}
@@ -494,6 +494,8 @@ function buildCard(it, i){
       <div class="card-tags">${buildTags(it)}</div>
       <div class="meta">${buildSource(it)}<span>${new Date(it.published).toLocaleString('vi-VN')}</span></div>
     </div>`;
+  card.dataset.link = it.link;
+
   return card;
 }
 
@@ -517,7 +519,6 @@ function buildRow(it, i){
   const summaryBtn = it.summary ? `<button class="col-toggle" aria-expanded="false" aria-controls="${sumId}" title="Xem tóm tắt">
         ${summaryIcon}
       </button>` : '';
-
 
   let titleText = it.title;
   for(const pat of HIGHLIGHT_TITLE){
@@ -544,6 +545,8 @@ function buildRow(it, i){
     </div>
     <div id="${sumId}" class="row-summary">${escapeHTML(it.summary||'')}${it.content_html||''}</div>
   `;
+  row.dataset.link = it.link;
+
   return row;
 }
 function buildNode(i){
@@ -907,6 +910,32 @@ newsList.addEventListener('click', (e)=>{
   const chev = btn.querySelector('.chev');
   if(chev){ chev.style.transform = !expanded ? 'rotate(180deg)' : 'rotate(0deg)'; }
 });
+// Desktop: click vào toàn card/row thì mở link
+newsList.addEventListener('click', (e)=>{
+  // bỏ qua các nút phụ như col-toggle, summary, v.v.
+  if (e.target.closest('.col-toggle')) return;
+  if (window.matchMedia('(max-width:640px)').matches) return; // chỉ desktop
+
+  const host = e.target.closest('.row, .card');
+  if (!host) return;
+
+  const link = host.dataset.link;
+  if (!link) return;
+
+  // mở tab mới
+  window.open(link, '_blank', 'noopener');
+}, false);
+newsList.addEventListener('click', (e)=>{
+  if (e.target.tagName === 'A') return; // để anchor xử lý bình thường
+  if (e.target.closest('.col-toggle')) return;
+  if (window.matchMedia('(max-width:640px)').matches) return;
+
+  const host = e.target.closest('.row, .card');
+  if (!host) return;
+  const link = host.dataset.link;
+  if (link) window.open(link, '_blank', 'noopener');
+}, false);
+
 function hidePopover(){ popover.classList.remove('show'); popover.setAttribute('aria-hidden','true'); }
 
 // ===== SIDE PANEL UPDATER =====
