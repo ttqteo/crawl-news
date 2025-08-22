@@ -14,6 +14,8 @@
   :root{
     --bg:#f8fafc; --card:#ffffff; --text:#0f172a; --muted:#475569; --muted-2:#64748b;
     --border:#e2e8f0; --accent:#2563eb; --accent-2:#1d4ed8;
+    /* NEW: adjustable title size */
+    --title-size: 11px;
   }
   [data-theme="dark"]{
     --bg:#0b1220; --card:#0f172a; --text:#e2e8f0; --muted:#a3adc2; --muted-2:#94a3b8; --border:#25324a; --accent:#60a5fa; --accent-2:#93c5fd;
@@ -43,7 +45,7 @@
   .thumb{width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:8px;background:#e2e8f0}
   .content{grid-column:span 8;display:flex;flex-direction:column;min-width:0}
   .content.full{grid-column:1/-1}
-  .title{margin:0;font-weight:750;font-size:12px;line-height:auto;}
+  .title{margin:0;font-weight:750;font-size:var(--title-size);line-height:auto;}
   .title a{text-decoration:none}
   .title a:hover{color:var(--accent-2);text-decoration:underline}
   .summary{margin:0 0 6px 0;color:var(--muted)}
@@ -128,6 +130,7 @@
     body.search-open #viewModeSel,
     body.search-open #btnRefresh,
     body.search-open #themeToggle{ display:none }
+    body.search-open #btnSettings{ display:none }
     #dateSelect{max-width:110px; flex:0 0 auto}
     #viewModeSel{max-width:90px; flex:0 0 auto}
     #themeToggle{flex:0 0 auto}
@@ -270,6 +273,93 @@
     #sourceSelect{ display:none; }
   }
 </style>
+<style>
+  /* Settings modal */
+  .modal-backdrop{
+    position: fixed; inset: 0; background: rgba(0,0,0,.35);
+    display: none; align-items: center; justify-content: center; z-index: 1000;
+  }
+  .modal-backdrop.show{ display:flex; }
+  .modal{
+    width: min(520px, 92vw);
+    background: var(--card); color: var(--text);
+    border: 1px solid var(--border); border-radius: 14px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.25);
+  }
+  .modal header{
+    padding: 12px 14px; border-bottom: 1px solid var(--border);
+    display:flex; align-items:center; justify-content:space-between;
+    background: transparent; position:unset; top:auto; z-index:auto;
+  }
+  .modal .body{ padding: 14px; display:grid; gap:14px; }
+  .modal .row{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .modal .row > label{ font-weight:600; color: var(--muted-2); }
+  .modal .row .field{ display:flex; align-items:center; gap:10px; }
+  .modal footer{
+    padding: 12px 14px; border-top: 1px solid var(--border); display:flex; gap:8px; justify-content:flex-end;
+  }
+  .switch{
+    position:relative; width:46px; height:26px; border-radius:999px; border:1px solid var(--border); cursor:pointer;
+    background:var(--bg);
+  }
+  .switch input{ display:none; }
+  .switch .dot{
+    position:absolute; top:2px; left:2px; width:22px; height:22px; border-radius:50%;
+    background:var(--card); border:1px solid var(--border); transition: transform .15s ease;
+  }
+  .switch input:checked + .dot{ transform: translateX(20px); }
+  .range-val{ min-width:42px; text-align:right; color:var(--muted-2); font-variant-numeric: tabular-nums; }
+  
+  /* Slide toggle (compact/rich) — class names scoped to avoid .thumb conflicts */
+  .slide-toggle{
+    position: relative;
+    display: inline-block;
+    width: 120px;
+    height: 32px;
+    cursor: pointer;
+  }
+  .slide-toggle input{ display:none; }
+
+  .slide-track{
+    position: absolute; inset: 0;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: transparent;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 10px;
+    font-size: 13px; font-weight: 600;
+    color: white;
+  }
+
+  .slide-label{ z-index: 2; pointer-events: none; }
+
+  .slide-knob{
+    position: absolute; top: 1px; left: 2px;
+    height: 28px;
+    border-radius: 999px;
+    background: transparent;
+    transition: all .2s ease;
+    z-index: 1;
+    background: #22c55e;
+  }
+
+  /* Active (Gọn) = green; knob slides right */
+  .slide-toggle input:checked + .slide-track .slide-knob{
+    width: 50px; 
+    left: 70px;
+  }
+  .slide-toggle input:not(:checked) + .slide-track .slide-knob{
+    width: 80px; 
+    left: 0;
+  }
+  /* Highlight search matches */
+  mark.search-hit {
+    background: rgba(231, 191, 30, 0.5); /* yellow-500 */
+    color: white;
+    padding: 0 1px;
+    border-radius: 2px;
+  }
+</style>
 </head>
 <body>
 <header>
@@ -284,7 +374,7 @@
     <input id="searchInput" placeholder="Tìm tiêu đề" style="flex:1" />
     <button id="btnCancelSearch" class="ghost" title="Đóng tìm kiếm"><i class="fa-solid fa-xmark"></i></button>
     <button id="btnClear" class="ghost" style="display: none">Xoá</button>
-    <select id="viewModeSel" title="Chế độ hiển thị">
+    <select id="viewModeSel" title="Chế độ hiển thị" style="display:none">
       <option value="rich">Thoải Mái</option>
       <option value="compact">Gọn</option>
     </select>
@@ -292,7 +382,10 @@
     <button id="sideToggle" class="ghost" title="Bật/tắt tóm tắt (desktop)">
       <i class="fa-solid fa-circle-info"></i>
     </button>
-    <button id="themeToggle" class="ghost" title="Dark/Light">🌓</button>
+    <button id="themeToggle" class="ghost" title="Dark/Light" style="display:none">🌓</button>
+    <button id="btnSettings" class="ghost" title="Cài đặt">
+      <i class="fa-solid fa-gear"></i>
+    </button>
     <button id="btnSearch" class="ghost" title="Tìm kiếm"><i class="fa-solid fa-magnifying-glass"></i></button>
   </div>
 </header>
@@ -317,6 +410,52 @@
 <button id="btnTop" class="top-btn" title="Lên đầu trang" aria-label="Lên đầu trang">
   <i class="fa-solid fa-arrow-up"></i>
 </button>
+
+<div id="settingsBackdrop" class="modal-backdrop" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <header>
+      <h3 id="settingsTitle" style="margin:0;font-size:16px;font-weight:750;">Cài đặt hiển thị</h3>
+      <button id="btnCloseSettings" class="ghost" title="Đóng"><i class="fa-solid fa-xmark"></i></button>
+    </header>
+    <div class="body">
+      <div class="row">
+        <label>Chủ đề</label>
+        <div class="field" style="gap:12px;">
+          <button id="optLight" class="ghost"><i class="fa-solid fa-sun"></i> Light</button>
+          <button id="optDark" class="ghost"><i class="fa-solid fa-moon"></i> Dark</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <label>Kích thước tiêu đề</label>
+        <div class="field">
+          <button id="btnFontMinus" class="ghost" title="Giảm"><i class="fa-solid fa-minus"></i></button>
+          <span class="range-val"><span id="titleSizeVal">11</span> px</span>
+          <button id="btnFontPlus" class="ghost" title="Tăng"><i class="fa-solid fa-plus"></i></button>
+        </div>
+      </div>
+      
+      <div class="row">
+        <label>Chế độ hiển thị</label>
+        <div class="field">
+          <label class="slide-toggle">
+            <input id="viewModeToggle" type="checkbox" />
+            <span class="slide-track">
+              <span class="slide-label slide-left">Thoải Mái</span>
+              <span class="slide-label slide-right">Gọn</span>
+              <span class="slide-knob"></span>
+            </span>
+          </label>
+        </div>
+      </div>
+         
+    </div>
+    <footer>
+      <button id="btnResetSettings" class="ghost" title="Về mặc định">Đặt lại</button>
+      <button id="btnSaveSettings" class="primary">Lưu</button>
+    </footer>
+  </div>
+</div>
 
 <script>
 // ==================== CONFIG & STATE ====================
@@ -363,6 +502,22 @@ const btnRefresh = document.getElementById('btnRefresh');
 const themeToggle= document.getElementById('themeToggle');
 const popover    = document.getElementById('popover');
 
+const btnSettings = document.getElementById('btnSettings');
+const settingsBackdrop = document.getElementById('settingsBackdrop');
+const btnCloseSettings = document.getElementById('btnCloseSettings');
+
+const optLight = document.getElementById('optLight');
+const optDark  = document.getElementById('optDark');
+
+const btnFontMinus = document.getElementById('btnFontMinus');
+const btnFontPlus  = document.getElementById('btnFontPlus');
+const titleSizeVal   = document.getElementById('titleSizeVal');
+
+const btnSaveSettings  = document.getElementById('btnSaveSettings');
+const btnResetSettings = document.getElementById('btnResetSettings');
+
+const viewModeToggle = document.getElementById('viewModeToggle');
+
 const state = {
   items: [],       // single-day items
   view: [],        // items to render
@@ -375,6 +530,7 @@ const state = {
   prog: { datesQueue: [], curDate:null, curItems:[], curIdx:0, ready:false }
 };
 viewModeSel.value = state.viewMode;
+let currentFontSize = Number(getPrefs().titleSize || 11);
 
 // ==================== THEME ====================
 function applyTheme(mode){ document.documentElement.setAttribute('data-theme', mode); }
@@ -396,6 +552,7 @@ function refreshThemeBtn(){ themeToggle.innerHTML = themeIconHTML(themeState); }
 // apply initial
 applyTheme(themeState);
 refreshThemeBtn();
+updateFontDisplay();
 
 // guard against ultra-fast clicks
 let themeLock = false;
@@ -513,8 +670,12 @@ function buildCard(it, i){
   card.innerHTML = `<div class="thumb-wrap">
     <img class="thumb" loading="lazy" decoding="async" src="${hasImg ? it.image : "assets/images/no-image.webp"}" alt=""></div>
     <div class="content">
-      <h3 class="title"><a href="${it.link}" target="_blank" rel="noopener">${escapeHTML(it.title)} ${badgeHTML}</a></h3>
-      <p class="summary clamp">${escapeHTML(it.summary||'')}</p>
+      <h3 class="title">
+        <a href="${it.link}" target="_blank" rel="noopener">
+          ${highlightTextDiacritics(it.title, searchInput.value.trim())} ${badgeHTML}
+        </a>
+      </h3>
+      <p class="summary clamp">${highlightTextDiacritics(it.summary||'', searchInput.value.trim())}</p>
       <div class="card-tags">${buildTags(it)}</div>
       <div class="meta">${buildSource(it)}<span>${new Date(it.published).toLocaleString('vi-VN')}</span></div>
     </div>`;
@@ -562,7 +723,11 @@ function buildRow(it, i){
 
   row.innerHTML = `
     <div class="time"><span class="t-full">${timeStr}</span><span class="t-short">${timeStr}</span></div>
-    <div class="title"><a href="${it.link}" target="_blank" rel="noopener">${escapeHTML(titleText)}</a> ${badgeHTML} ${buildTags(it)}</div>
+    <div class="title">
+      <a href="${it.link}" target="_blank" rel="noopener">
+        ${highlightTextDiacritics(titleText, searchInput.value.trim())}
+      </a> ${badgeHTML} ${buildTags(it)}
+    </div>
     <div class="meta">
       ${buildSource(it)}
       ${summaryBtn}
@@ -811,7 +976,7 @@ btnClear.addEventListener('click', ()=>{ searchInput.value=''; runFilter(); sear
 btnSearch.addEventListener('click', ()=>{ document.body.classList.add('search-open'); setTimeout(()=> searchInput.focus(), 0); });
 searchInput.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ document.body.classList.remove('search-open'); searchInput.blur(); }});
 searchInput.addEventListener('blur', ()=>{ if(window.matchMedia('(max-width:640px)').matches && !searchInput.value){ document.body.classList.remove('search-open'); }});
-btnCancelSearch.addEventListener('click', ()=>{ document.body.classList.remove('search-open'); searchInput.blur(); });
+btnCancelSearch.addEventListener('click', ()=>{ document.body.classList.remove('search-open'); searchInput.blur(); searchInput.value=''; runFilter(); });
 
 dateSelect.addEventListener('change', async ()=>{
   if (aborter) { try { aborter.abort(); } catch{} }
@@ -1192,6 +1357,155 @@ sourceSelect.addEventListener('change', ()=>{
   localStorage.setItem('srcSet', JSON.stringify([...state.selectedSources]));
   runFilter();
 });
+
+// --- SETTINGS (persisted) ---
+function applyTitleSize(px){
+  const v = (Number(px)||11) + 'px';
+  document.documentElement.style.setProperty('--title-size', v);
+}
+
+function loadSettings(){
+  const p = getPrefs();
+  // theme already handled by existing init; keep it in sync in UI
+  const theme = (p.theme === 'light' || p.theme === 'dark') ? p.theme : themeState;
+  // title size
+  const tsize = Number(p.titleSize || 11);
+  applyTitleSize(tsize);
+
+  const vm = localStorage.getItem('viewMode') || state.viewMode || 'rich';
+  syncViewModeToggle(vm);
+
+  // reflect theme buttons
+  setThemeButtons(theme);
+}
+
+function setThemeButtons(theme){
+  // visually you could highlight current, but we just keep simple
+  // no-op UI state for now
+}
+
+function openSettings(){
+  loadSettings();
+  settingsBackdrop.classList.add('show');
+  settingsBackdrop.setAttribute('aria-hidden', 'false');
+}
+
+function closeSettings(){
+  settingsBackdrop.classList.remove('show');
+  settingsBackdrop.setAttribute('aria-hidden', 'true');
+}
+
+// Open/close
+btnSettings.addEventListener('click', openSettings);
+btnCloseSettings.addEventListener('click', closeSettings);
+settingsBackdrop.addEventListener('click', (e)=>{
+  if (e.target === settingsBackdrop) closeSettings();
+});
+document.addEventListener('keydown', (e)=>{
+  if (e.key === 'Escape' && settingsBackdrop.classList.contains('show')) closeSettings();
+});
+
+// Theme buttons
+optLight.addEventListener('click', ()=>{
+  themeState = 'light';
+  applyTheme(themeState);
+  refreshThemeBtn();                      // your existing header moon/sun
+  savePrefs({ ...getPrefs(), theme: themeState });
+});
+optDark.addEventListener('click', ()=>{
+  themeState = 'dark';
+  applyTheme(themeState);
+  refreshThemeBtn();
+  savePrefs({ ...getPrefs(), theme: themeState });
+});
+
+// Save (persist titleSize explicitly; theme already stored when clicked)
+btnSaveSettings.addEventListener('click', ()=>{
+  const p = getPrefs();
+  const newPrefs = { ...p, titleSize: currentFontSize };
+  savePrefs(newPrefs);
+  closeSettings();
+});
+
+// Reset to defaults
+btnResetSettings.addEventListener('click', ()=>{
+  themeState = 'dark';
+  applyTheme(themeState);
+  refreshThemeBtn();
+  const p = getPrefs();
+  savePrefs({ ...p, theme: 'dark', titleSize: 11 });
+
+  currentFontSize = 11;
+  updateFontDisplay();
+
+  viewModeSel.value = 'rich';
+  viewModeSel.dispatchEvent(new Event('change'));
+  syncViewModeToggle('rich');
+});
+
+function applyTitleSize(px){
+  const v = (Number(px)||11) + 'px';
+  document.documentElement.style.setProperty('--title-size', v);
+}
+
+function updateFontDisplay(){
+  titleSizeVal.textContent = currentFontSize;
+  applyTitleSize(currentFontSize);
+}
+
+btnFontMinus.addEventListener('click', ()=>{
+  if (currentFontSize > 10){
+    currentFontSize--;
+    updateFontDisplay();
+  }
+});
+
+btnFontPlus.addEventListener('click', ()=>{
+  if (currentFontSize < 18){
+    currentFontSize++;
+    updateFontDisplay();
+  }
+});
+
+function syncViewModeToggle(mode){
+  viewModeToggle.checked = (mode === 'compact');
+}
+
+viewModeToggle.addEventListener('change', ()=>{
+  const newMode = viewModeToggle.checked ? 'compact' : 'rich';
+  if (viewModeSel.value !== newMode){
+    viewModeSel.value = newMode;
+    viewModeSel.dispatchEvent(new Event('change'));
+  }
+});
+
+function highlightTextDiacritics(text, query){
+  if (!query) return escapeHTML(text);
+
+  const normText = removeDiacritics(text.toLowerCase());
+  const normQuery = removeDiacritics(query.toLowerCase());
+  if (!normQuery) return escapeHTML(text);
+
+  let result = "";
+  let i = 0;
+
+  while (i < text.length){
+    // take slice in normalized text with same length as query
+    const sub = normText.slice(i, i + normQuery.length);
+    if (sub === normQuery){
+      // match found → wrap original text substring
+      const originalSlice = escapeHTML(text.slice(i, i + normQuery.length));
+      result += `<mark class="search-hit">${originalSlice}</mark>`;
+      i += normQuery.length;
+    } else {
+      // no match → just output this char
+      result += escapeHTML(text[i]);
+      i++;
+    }
+  }
+
+  return result;
+}
 
 // ==================== BOOT ====================
 loadIndex();
