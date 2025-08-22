@@ -801,24 +801,29 @@ dateSelect.addEventListener('change', async ()=>{
 async function refreshNow(){
   try {
     isRefreshing = true;
-    // Lấy bộ key trước refresh để so sánh
     const prev = new Set(state.view.map(it => itemKey(it)));
+    const todayKey = dateKeyFromTs(Date.now());
 
     if (dateSelect.value === 'all') {
+      // Chế độ all: không gắn NEW (tránh nhiễu & tốn tính toán)
       const idx = await fetchJSON('news/index.json');
-      await initProgressiveAll(idx.dates || []);
-      // Ở chế độ "all", NEW_KEYS = khác biệt với prev của view cũ
       NEW_KEYS = new Set();
-      // (sau resetAndRender, batch đầu sẽ hiển thị; NEW sẽ xuất hiện dần)
     } else {
-      await loadDay(dateSelect.value); // sẽ set state.items + state.view
-      // So sánh view mới với prev để biết NEW
-      NEW_KEYS = new Set(
-        state.view.filter(it => !prev.has(itemKey(it))).map(itemKey)
-      );
+      await loadDay(dateSelect.value);
+
+      if (dateSelect.value === todayKey) {
+        // NEW = item xuất hiện sau refresh, và đúng ngày hôm nay
+        NEW_KEYS = new Set(
+          state.view
+            .filter(it => dateKeyFromTs(it.published) === todayKey)
+            .filter(it => !prev.has(itemKey(it)))
+            .map(itemKey)
+        );
+      } else {
+        NEW_KEYS = new Set(); // ngày cũ không gắn NEW
+      }
     }
 
-    rememberSeen(); // lưu lại SEEN_KEYS nếu bạn muốn đánh dấu tất cả xem như đã thấy
     lastRefreshAt = Date.now();
   } finally {
     isRefreshing = false;
@@ -827,7 +832,6 @@ async function refreshNow(){
 
 btnRefresh.addEventListener('click', refreshNow);
 
-
 viewModeSel.addEventListener('change', ()=>{
   state.viewMode = viewModeSel.value;
   localStorage.setItem('viewMode', state.viewMode);
@@ -835,18 +839,19 @@ viewModeSel.addEventListener('change', ()=>{
 });
 localStorage.setItem('viewMode', state.viewMode);
 
-// Mark as read when user clicks a link
+// Click bất kỳ row/card nào -> đánh dấu đã đọc
 newsList.addEventListener('click', (e)=>{
-  const a = e.target.closest('a[href]');
-  if(!a) return;
   const host = e.target.closest('.row, .card');
   if(!host) return;
+
   const idx = Number(host.dataset.idx);
   const it = state.view[idx];
   if(!it) return;
+
   const k = itemKey(it);
   SEEN_KEYS.add(k);
   rememberSeen();
+
   host.classList.remove('is-unread');
   host.classList.add('is-read');
 }, true);
@@ -953,32 +958,61 @@ function setSidePanel(it){
   spContent.innerHTML = it.content_html || '';
 }
 
-// ---- New item tracking ----
+// ---- New item tracking (per-day) ----
 const SEEN_KEYS = new Set(JSON.parse(localStorage.getItem('seenKeys') || '[]'));
-let NEW_KEYS = new Set();            // sẽ chứa key của tin mới ở lần refresh
-let isRefreshing = false;            // flag phân biệt lần đầu vs refresh
 
-function itemKey(it){
-  // ưu tiên link + published để ổn định
-  return `${it.link || ''}|${it.published || ''}`;
-}
 function rememberSeen(limit=500){
-  // tránh phình to localStorage
   localStorage.setItem('seenKeys', JSON.stringify([...SEEN_KEYS].slice(-limit)));
 }
 
-if (isRefreshing) {
-  NEW_KEYS = new Set();
-  for (const it of state.view) {
-    const k = itemKey(it);
-    if (!SEEN_KEYS.has(k)) {
-      NEW_KEYS.add(k);
-      SEEN_KEYS.add(k);
-    }
+const SEEN_CACHE = {}; // cache Set theo dayKey
+let NEW_KEYS = new Set();
+
+function itemKey(it){
+  return `${it.link || ''}|${it.published || ''}`;
+}
+
+function dayKeyOf(itOrTs){
+  const ts = typeof itOrTs === 'object' ? itOrTs.published : itOrTs;
+  return dateKeyFromTs(ts); // bạn đã có sẵn helper này
+}
+
+function getSeenSet(dayKey){
+  if (!SEEN_CACHE[dayKey]) {
+    SEEN_CACHE[dayKey] = new Set(SEEN_BY_DATE[dayKey] || []);
   }
-  rememberSeen();
-} else {
-  NEW_KEYS = new Set(); // lần tải đầu tiên không highlight tất cả
+  return SEEN_CACHE[dayKey];
+}
+
+function persistSeen(dayKey, limit=500){
+  const set = getSeenSet(dayKey);
+  SEEN_BY_DATE[dayKey] = [...set].slice(-limit);
+  localStorage.setItem('seenByDate', JSON.stringify(SEEN_BY_DATE));
+}
+
+// áp class read/unread theo ngày của item
+function applyReadClass(node, it){
+  const dk = dayKeyOf(it);
+  const seen = getSeenSet(dk);
+  if (seen.has(itemKey(it))) node.classList.add('is-read');
+  else node.classList.add('is-unread');
+}
+
+// đánh dấu đã đọc cho đúng “ngày”
+function markSeen(it, hostEl){
+  const dk = dayKeyOf(it);
+  const seen = getSeenSet(dk);
+  const k = itemKey(it);
+  if (!seen.has(k)) { seen.add(k); persistSeen(dk); }
+  if (hostEl){
+    hostEl.classList.remove('is-unread');
+    hostEl.classList.add('is-read');
+  }
+}
+
+// NEW chỉ tính theo bộ NEW_KEYS hiện tại
+function isNewItem(it){
+  return NEW_KEYS.has(itemKey(it));
 }
 
 let lastRefreshAt = 0;
