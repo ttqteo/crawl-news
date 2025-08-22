@@ -530,7 +530,7 @@ const state = {
   prog: { datesQueue: [], curDate:null, curItems:[], curIdx:0, ready:false }
 };
 viewModeSel.value = state.viewMode;
-let currentFontSize = Number(getPrefs().titleSize || 11);
+let currentFontSize = Number(getPrefs().titleSize || 12);
 
 // ==================== THEME ====================
 function applyTheme(mode){ document.documentElement.setAttribute('data-theme', mode); }
@@ -1418,9 +1418,8 @@ btnResetSettings.addEventListener('click', ()=>{
   applyTheme(themeState);
   refreshThemeBtn();
   const p = getPrefs();
-  savePrefs({ ...p, theme: 'dark', titleSize: 11 });
+  savePrefs({ ...p, theme: 'dark'});
 
-  currentFontSize = 11;
   updateFontDisplay();
 
   viewModeSel.value = 'rich';
