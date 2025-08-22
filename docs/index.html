@@ -220,38 +220,55 @@
     from { background: rgba(37, 99, 235, .12); } /* xanh nhạt */
     to   { background: transparent; }
   }
-</style>
-<style>
-/* --- Read / Unread --- */
-.row.is-unread, .card.is-unread{ border-color: var(--accent); }
-.row.is-read .title a, .card.is-read .title a{ opacity:.78; }
-.row.is-unread .title::before, .card.is-unread .title::before{
-  content:""; display:inline-block; width:6px; height:6px; border-radius:50%;
-  background:var(--accent); margin-right:6px; transform:translateY(-1px);
-}
+  /* Side panel sticks under the header; allow internal scrolling */
+  @media (min-width:641px){
+    body.side-open #sidePanel{
+      position: sticky;
+      top: 64px;                   /* matches your header size */
+      max-height: calc(100vh - 64px);
+      display: block;
+      overflow: hidden;            /* contain the scroll to .sp-body */
+    }
+  }
 
-/* --- Badge NEW --- */
-.badge-new{
-  display:inline-block; margin-left:6px; padding:2px 6px; border-radius:999px;
-  font-size:10px; font-weight:700; letter-spacing:.3px;
-  color:#0b1220; background:#93c5fd; /* nhạt ở dark mode cũng đủ tương phản */
-}
-[data-theme="dark"] .badge-new{ color:#0b1220; }
+  /* Make only the content area scroll so the header stays pinned */
+  #sidePanel .sp-body{
+    overflow: auto;
+    max-height: calc(100vh - 64px - 44px); /* 44px ~= .sp-head height */
+  }
 
-/* --- Scroll to top button --- */
-.top-btn{
-  position:fixed; right:16px; bottom:16px; z-index:40;
-  width:40px; height:40px; border-radius:999px;
-  display:none; align-items:center; justify-content:center;
-  border:1px solid var(--border); background:var(--card); color:var(--text);
-  box-shadow:0 8px 24px rgba(0,0,0,.18); cursor:pointer;
-}
-.top-btn.show{ display:flex; }
-.top-btn:hover{ background:var(--accent); color:#fff; border-color:var(--accent); }
-#sourceSelect{ max-width: 180px; }
-@media (max-width:640px){
-  #sourceSelect{ display:none; }
-}
+  </style>
+  <style>
+  /* --- Read / Unread --- */
+  .row.is-unread, .card.is-unread{ border-color: var(--accent); }
+  .row.is-read .title a, .card.is-read .title a{ opacity:.78; }
+  .row.is-unread .title::before, .card.is-unread .title::before{
+    content:""; display:inline-block; width:6px; height:6px; border-radius:50%;
+    background:var(--accent); margin-right:6px; transform:translateY(-1px);
+  }
+
+  /* --- Badge NEW --- */
+  .badge-new{
+    display:inline-block; margin-left:6px; padding:2px 6px; border-radius:999px;
+    font-size:10px; font-weight:700; letter-spacing:.3px;
+    color:#0b1220; background:#93c5fd; /* nhạt ở dark mode cũng đủ tương phản */
+  }
+  [data-theme="dark"] .badge-new{ color:#0b1220; }
+
+  /* --- Scroll to top button --- */
+  .top-btn{
+    position:fixed; right:16px; bottom:16px; z-index:40;
+    width:40px; height:40px; border-radius:999px;
+    display:none; align-items:center; justify-content:center;
+    border:1px solid var(--border); background:var(--card); color:var(--text);
+    box-shadow:0 8px 24px rgba(0,0,0,.18); cursor:pointer;
+  }
+  .top-btn.show{ display:flex; }
+  .top-btn:hover{ background:var(--accent); color:#fff; border-color:var(--accent); }
+  #sourceSelect{ max-width: 180px; }
+  @media (max-width:640px){
+    #sourceSelect{ display:none; }
+  }
 </style>
 </head>
 <body>
@@ -309,6 +326,8 @@ const PERF = {
   USE_SKELETON: true,      // shimmer placeholders (off = fastest)
   ENABLE_SYMBOLS_IN_ALL: true // symbol tagging is heavy; keep off in "all"
 };
+
+const SKIP_SYMBOLS = new Set(['TIN','USD','THU','VND','CEO','THA','MTL','NET','TOP','HCM','TRA','HAI','LAI','THI','BIG','VUA','TAN']);
 
 const HIGHLIGHT_TITLE = [
   "Vietstock Daily",
@@ -411,7 +430,6 @@ async function loadSymbols(){
     );
   } catch(e) { /* optional */ }
 }
-const SKIP_SYMBOLS = new Set(['TIN','USD','THU','VND','CEO','THA','MTL','NET','TOP','HCM','TRA','HAI','LAI','THI','BIG','VUA']);
 function findSymbols(text){
   if(!text || SYMBOLS_SET.size === 0) return [];
   
@@ -420,9 +438,14 @@ function findSymbols(text){
   const out = new Set();
 
   for (const w of words){
-    if (w.length >= 3 && SYMBOLS_SET.has(w) && !SKIP_SYMBOLS.has(w)) {
+    if (w.length >= 3 && SYMBOLS_SET.has(w)){
+      // kiểm tra nếu nằm trong SKIP_SYMBOLS
+      if (SKIP_SYMBOLS.has(w)){
+        // chỉ cho phép nếu có pattern "w:" trong nguyên văn
+        const regex = new RegExp(`\\b${w}:`, 'i');
+        if (!regex.test(text)) continue;
+      }
       out.add(w);
-      if(out.size >= 8) break;
     }
   }
   return [...out];
@@ -482,6 +505,7 @@ function buildCard(it, i){
 
   const hasImg = !!it.image;
   const card = document.createElement('article');
+  card.dataset.link = it.link;
   card.className = 'card';
   card.dataset.idx = i;
   card.setAttribute('data-summary', (it.summary||'').replace(/\n/g,' '));
@@ -494,7 +518,6 @@ function buildCard(it, i){
       <div class="card-tags">${buildTags(it)}</div>
       <div class="meta">${buildSource(it)}<span>${new Date(it.published).toLocaleString('vi-VN')}</span></div>
     </div>`;
-  card.dataset.link = it.link;
 
   return card;
 }
@@ -508,6 +531,7 @@ function buildRow(it, i){
   const badgeHTML = isNewItem(it) ? '<span class="badge-new">NEW</span>' : '';
 
   const row=document.createElement('div'); row.className='row';
+  row.dataset.link = it.link;
   row.dataset.idx = i;
   // For desktop popover:
   row.setAttribute('data-summary', (it.summary||'').replace(/\n/g,' '));
@@ -545,7 +569,6 @@ function buildRow(it, i){
     </div>
     <div id="${sumId}" class="row-summary">${escapeHTML(it.summary||'')}${it.content_html||''}</div>
   `;
-  row.dataset.link = it.link;
 
   return row;
 }
@@ -883,16 +906,21 @@ newsList.addEventListener('mouseover', (e)=>{
   }
 });
 
+// Don't clear side panel when moving mouse from list -> side panel
 newsList.addEventListener('mouseout', (e)=>{
-  if (!e.relatedTarget || !newsList.contains(e.relatedTarget)) {
-    hidePopover();
-    spTitle.innerHTML = 'Di chuột vào một tin để xem tóm tắt…';
-    spSummary.innerHTML = '';
-    spTags.innerHTML = '';
-    spMeta.innerHTML = '';
-    spContent.innerHTML = '';
-  };
+  const to = e.relatedTarget;
+  // If pointer is still inside the list OR moved into sidePanel, do nothing
+  if (to && (newsList.contains(to) || sidePanel.contains(to))) return;
+
+  hidePopover();
+  // Only clear the panel if we're not hovering the side panel
+  spTitle.innerHTML = 'Di chuột vào một tin để xem tóm tắt…';
+  spSummary.innerHTML = '';
+  spTags.innerHTML = '';
+  spMeta.innerHTML = '';
+  spContent.innerHTML = '';
 });
+
 // Mobile-only: toggle summary panel when tapping the caret button
 newsList.addEventListener('click', (e)=>{
   const btn = e.target.closest('.col-toggle');
@@ -925,15 +953,40 @@ newsList.addEventListener('click', (e)=>{
   // mở tab mới
   window.open(link, '_blank', 'noopener');
 }, false);
+let _lastOpenAt = 0;
+
 newsList.addEventListener('click', (e)=>{
-  if (e.target.tagName === 'A') return; // để anchor xử lý bình thường
-  if (e.target.closest('.col-toggle')) return;
+  // chỉ desktop
   if (window.matchMedia('(max-width:640px)').matches) return;
+
+  // nếu click ngay trên <a> (hoặc phần tử con bên trong <a>) thì để anchor tự xử lý
+  const anchor = e.target.closest('a[href]');
+  if (anchor) return;
+
+  // bỏ qua nút phụ (tóm tắt, caret…)
+  if (e.target.closest('.col-toggle')) return;
+
+  // chỉ nhận click trái, không kèm Ctrl/Meta/Shift/Alt
+  if (e.button !== 0) return;
+  if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+
+  // nếu người dùng đang bôi chọn text, đừng mở
+  const sel = window.getSelection && window.getSelection();
+  if (sel && String(sel).length) return;
 
   const host = e.target.closest('.row, .card');
   if (!host) return;
+
   const link = host.dataset.link;
-  if (link) window.open(link, '_blank', 'noopener');
+  if (!link) return;
+
+  // debounce tránh double-fire (Edge/extension)
+  const now = Date.now();
+  if (now - _lastOpenAt < 600) return;
+  _lastOpenAt = now;
+
+  // mở tab mới
+  window.open(link, '_blank', 'noopener');
 }, false);
 
 function hidePopover(){ popover.classList.remove('show'); popover.setAttribute('aria-hidden','true'); }
@@ -985,6 +1038,9 @@ function setSidePanel(it){
   spMeta.innerHTML = `${buildSource(it)}<span>${time}</span>`;
 
   spContent.innerHTML = it.content_html || '';
+  // If there's long content, ensure the body can scroll
+  const hasLongContent = !!it.content_html && spContent.textContent.length > 0;
+  sidePanel.querySelector('.sp-body').style.overflow = hasLongContent ? 'auto' : 'hidden';
 }
 
 // ---- New item tracking (per-day) ----
