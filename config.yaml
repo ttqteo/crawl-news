@@ -9,9 +9,8 @@ sources:
   - name: "Markettimes"
     type: markettimes
     urls:
-      - "https://markettimes.vn/rss/trang-chu"
-      - "https://markettimes.vn/rss/tieu-diem"
       - "https://markettimes.vn/rss/tai-chinh"
+      - "https://markettimes.vn/rss/kinh-doanh"
   - name: "Người Quan Sát"
     type: nguoiquansat
     urls:
