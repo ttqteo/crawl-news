@@ -1103,54 +1103,39 @@ newsList.addEventListener('click', (e)=>{
   const chev = btn.querySelector('.chev');
   if(chev){ chev.style.transform = !expanded ? 'rotate(180deg)' : 'rotate(0deg)'; }
 });
-// Desktop: click vào toàn card/row thì mở link
-newsList.addEventListener('click', (e)=>{
-  // bỏ qua các nút phụ như col-toggle, summary, v.v.
-  if (e.target.closest('.col-toggle')) return;
-  if (window.matchMedia('(max-width:640px)').matches) return; // chỉ desktop
-
-  const host = e.target.closest('.row, .card');
-  if (!host) return;
-
-  const link = host.dataset.link;
-  if (!link) return;
-
-  // mở tab mới
-  window.open(link, '_blank', 'noopener');
-}, false);
+// --- Desktop: open whole row/card on click (debounced & safe) ---
 let _lastOpenAt = 0;
 
-newsList.addEventListener('click', (e)=>{
-  // chỉ desktop
+newsList.addEventListener('click', (e) => {
+  // desktop only
   if (window.matchMedia('(max-width:640px)').matches) return;
 
-  // nếu click ngay trên <a> (hoặc phần tử con bên trong <a>) thì để anchor tự xử lý
-  const anchor = e.target.closest('a[href]');
-  if (anchor) return;
+  // let real links handle themselves
+  if (e.target.closest('a[href]')) return;
 
-  // bỏ qua nút phụ (tóm tắt, caret…)
-  if (e.target.closest('.col-toggle')) return;
+  // ignore interactive controls (summary toggle, buttons, inputs…)
+  if (e.target.closest('.col-toggle, button, input, select, textarea, label')) return;
 
-  // chỉ nhận click trái, không kèm Ctrl/Meta/Shift/Alt
+  // only plain left click, no modifiers
   if (e.button !== 0) return;
   if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
 
-  // nếu người dùng đang bôi chọn text, đừng mở
+  // don't fire while selecting text
   const sel = window.getSelection && window.getSelection();
   if (sel && String(sel).length) return;
 
+  // find the clicked host
   const host = e.target.closest('.row, .card');
   if (!host) return;
 
   const link = host.dataset.link;
   if (!link) return;
 
-  // debounce tránh double-fire (Edge/extension)
+  // debounce to avoid double-open (Edge/extensions)
   const now = Date.now();
   if (now - _lastOpenAt < 600) return;
   _lastOpenAt = now;
 
-  // mở tab mới
   window.open(link, '_blank', 'noopener');
 }, false);
 
