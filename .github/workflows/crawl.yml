@@ -2,10 +2,12 @@ name: fetch-news
 
 on:
   schedule:
-    # Every 15 minutes between 01:00 and 08:59 UTC (07:00–17:59 VN)
-    - cron: "*/15 0-10 * * *"
-    # Every 1 hour for the rest of the day (18:00–07:59 VN)
-    - cron: "0 11-23,0 * * *"
+    # Every 15 minutes between 01:00 and 08:59 UTC (08:00–15:59 VN)
+    - cron: "*/15 1-8 * * *"
+    # Every 1 hour for the rest of the day
+    - cron: "0 9-23,0 * * *"
+    # 6 AM Vietnam (23:00 UTC) - triggers AI Morning Digest
+    - cron: "0 23 * * *"
   workflow_dispatch:
 
 jobs:
@@ -20,13 +22,23 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"  # modern Python; native zoneinfo
+          python-version: "3.11" # modern Python; native zoneinfo
 
       - name: Install deps
         run: pip install -r requirements.txt
 
       - name: Run crawler
-        run: python app.py   # uses config.yaml by default
+        run: python app.py
+
+      - name: AI Synthesis (Local Clustering)
+        if: github.event.schedule == '0 23 * * *' || github.event_name == 'workflow_dispatch'
+        run: python scripts/cluster_news.py
+
+      - name: AI Morning Digest
+        if: github.event.schedule == '0 23 * * *' || github.event_name == 'workflow_dispatch'
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: python scripts/daily_digest.py
 
       - name: Ensure output dir
         run: mkdir -p docs/news
