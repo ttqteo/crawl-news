@@ -1,0 +1,10 @@
+services:
+  crawler:
+    build: .
+    container_name: news-crawler
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+    # Run once and exit
+    command: ./run_pipeline.sh
