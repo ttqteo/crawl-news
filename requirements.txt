@@ -5,3 +5,6 @@ lxml==5.2.2
 PyYAML==6.0.2
 backports.zoneinfo; python_version < "3.9"
 requests==2.32.3
+scikit-learn
+numpy
+openai
