@@ -1,1498 +1,486 @@
 <!DOCTYPE html>
-<html lang="vi" data-theme="auto">
+<html lang="vi" data-theme="dark">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>news crawler /w @ttqteo</title>
+<title>News Crawler - Discovery</title>
 <link rel="icon" href="assets/images/icon.jpg" type="image/jpeg" />
 <link rel="apple-touch-icon" href="assets/images/icon.jpg" />
-<meta property="og:image" content="assets/images/icon.jpg" />
-<meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:image" content="assets/images/icon.jpg" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;800;900&family=Playfair+Display:wght@700;800&family=Lora:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.2/css/all.min.css" />
 <style>
-  :root{
-    --bg:#f8fafc; --card:#ffffff; --text:#0f172a; --muted:#475569; --muted-2:#64748b;
-    --border:#e2e8f0; --accent:#2563eb; --accent-2:#1d4ed8;
-    /* NEW: adjustable title size */
-    --title-size: 11px;
-  }
-  [data-theme="dark"]{
-    --bg:#0b1220; --card:#0f172a; --text:#e2e8f0; --muted:#a3adc2; --muted-2:#94a3b8; --border:#25324a; --accent:#60a5fa; --accent-2:#93c5fd;
-  }
-  @media (prefers-color-scheme: dark){ [data-theme="auto"]{ --bg:#0b1220; --card:#0f172a; --text:#e2e8f0; --muted:#a3adc2; --muted-2:#94a3b8; --border:#25324a; --accent:#60a5fa; --accent-2:#93c5fd; } }
-
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.55 system-ui,Segoe UI,Roboto,Inter,Arial}
-  a{color:inherit}
-  header{position:sticky;top:0;z-index:20;background:var(--card);border-bottom:1px solid var(--border)}
-  .wrap{max-width:1000px;margin:0 auto;padding:10px 14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-  .brand{display:flex;align-items:center;gap:8px;text-decoration:none;color:inherit}
-  .brand img{width:24px;height:24px;border-radius:6px;object-fit:cover}
-  select,input,button{padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:transparent;color:var(--text)}
-  /* desktop: hide search toggle button */
-  #btnSearch{ display:none }
-  /* cancel button hidden by default */
-  #btnCancelSearch{ display:none }
-  button.primary{background:var(--accent);color:#fff;border:0;cursor:pointer}
-  button.ghost{border-color:var(--border);cursor:pointer}
-
-  main{max-width:1000px;margin:12px auto;padding:0 14px}
-
-  /* RICH MODE (image + summary) */
-  .card{display:grid;grid-template-columns:repeat(10,1fr);gap:12px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:10px;cursor:pointer;}
-  .thumb-wrap{grid-column:span 2}
-  .thumb{width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:8px;background:#e2e8f0}
-  .content{grid-column:span 8;display:flex;flex-direction:column;min-width:0}
-  .content.full{grid-column:1/-1}
-  .title{margin:0;font-weight:750;font-size:var(--title-size);line-height:auto;}
-  .title a{text-decoration:none}
-  .title a:hover{color:var(--accent-2);text-decoration:underline}
-  .summary{margin:0 0 6px 0;color:var(--muted)}
-  .summary.clamp{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-  .meta{margin-top:auto;display:flex;gap:8px;justify-content:space-between;color:var(--muted-2);font-size:.86rem;padding-top:6px}
-
-  /* COMPACT MODE (time | title | tags | source) */
-  .row{display:grid;grid-template-columns:35px 1fr auto auto;gap:8px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px;margin-bottom:8px;cursor:pointer;}
-  .row .time{color:var(--muted-2);font-variant-numeric:tabular-nums;font-size:10px;line-height:auto;}
-  .row .title a{color:var(--text);text-decoration:none}
-  .row .title a:hover{color:var(--accent-2);text-decoration:underline}
-  .row .tags{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-start;}
-  /* allow wrapping container that doesn't affect desktop grid placement */
-  .row .meta{display:contents}
-  .tag{padding:1px 5px;border-radius:999px;font-size:.72rem;color:#1e40af;background:#eef2ff;white-space:nowrap;margin-left:4px;font-weight: 750;}
-  .sp-tags .tag{margin-left: 0!important;}
-  .card-tags .tag{margin-left: 0!important;}
-  .row .source{color:var(--muted-2);text-align:right;font-size:10px;}
-  .row:hover{border-color:var(--accent)}
-  /* default time display: show full, hide short */
-  .row .time .t-full{display:inline}
-  .row .time .t-short{display:none}
-
-  /* Date separator when viewing all dates */
-  .date-sep{margin:16px 2px 10px 2px;color:var(--muted-2);font-weight:700;border-left:3px solid var(--border);padding-left:8px}
-
-  /* Popover for summary in compact */
-  /* .popover{position:fixed;z-index:30;max-width:min(560px,90vw);background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);display:none} */
-  .popover{position:absolute;z-index:50;max-width:560px;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px 12px;box-shadow:0 8px 30px rgba(0,0,0,.15);pointer-events:none;opacity:0;transform:translateY(4px);transition:opacity .12s ease, transform .12s ease;font-size: 12px;}
-  .popover.show{opacity:1;transform:translateY(0)}
-
-  /* Skeleton (shimmer) */
-  .skel-wrap{display:grid;gap:12px;margin:12px 0}
-  .skel-card{
-    display:grid; grid-template-columns:160px 1fr; gap:14px;
-    padding:14px; border:1px solid var(--border,#e5e7eb); border-radius:12px;
-  }
-  .skel-thumb, .skel-line{
-    background: linear-gradient(90deg, #e8ebef 0%, #f2f4f7 50%, #e8ebef 100%);
-    background-size: 200% 100%;
-    animation: skel-shimmer 1.1s linear infinite;
-    will-change: background-position;
-  }
-  .skel-thumb{height:96px;border-radius:8px}
-  .skel-lines{display:grid;gap:8px}
-  .skel-line{height:14px;border-radius:6px}
-  .skel-line.w60{width:60%} .skel-line.w80{width:80%} .skel-line.w40{width:40%}
-
-  .skel-row{
-    display:grid; grid-template-columns:72px 1fr 160px; gap:12px;
-    padding:10px 6px; border-bottom:1px dashed var(--border,#e5e7eb)
+  :root {
+    --bg: #ffffff;
+    --sidebar-bg: #f3f3f3;
+    --border: #e5e7eb;
+    --text: #111827;
+    --text-muted: #6b7280;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --card-bg: #ffffff;
+    --hover-bg: #f9fafb;
+    --sidebar-width: 240px;
+    --right-panel-width: 380px;
+    --max-content-width: 1040px;
+    --tag-bg: #eef2ff;
+    --tag-text: #1e40af;
+    --font-serif: 'Lora', 'Playfair Display', serif;
+    --font-sans: 'Hanken Grotesk', system-ui, sans-serif;
   }
 
-  @keyframes skel-shimmer{
-    0%{ background-position: 200% 0; }
-    100%{ background-position: -200% 0; }
+  [data-theme="dark"] {
+    --bg: #000000;
+    --sidebar-bg: #000000;
+    --border: #262626;
+    --text: #ffffff;
+    --text-muted: #a3a3a3;
+    --accent: #3b82f6;
+    --accent-hover: #60a5fa;
+    --card-bg: #000000;
+    --hover-bg: #111111;
+    --tag-bg: rgba(59, 130, 246, 0.15);
+    --tag-text: #93c5fd;
   }
 
-  /* Respect users who prefer reduced motion */
-  @media (prefers-reduced-motion: reduce){
-    .skel-thumb, .skel-line{ animation: none; background: #eaecef; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    line-height: 1.5;
+    display: flex;
+    overflow-x: hidden;
   }
 
-  .source{ display:flex; align-items:center; gap:6px; }
-  .source-logo{ width:16px; height:16px; object-fit:contain; border-radius:4px; }
+  /* SIDEBAR */
+  .sidebar {
+    width: var(--sidebar-width); height: 100vh; position: fixed; left: 0; top: 0;
+    background: var(--sidebar-bg); border-right: 1px solid var(--border); padding: 24px 16px;
+    display: flex; flex-direction: column; z-index: 500; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .sidebar-collapsed .sidebar { transform: translateX(-100%); }
+  .sidebar-logo {
+    display: flex; align-items: center; gap: 12px; font-weight: 800; font-size: 22px; text-decoration: none; color: var(--text); padding: 0 12px 32px 12px;
+  }
+  .sidebar-logo img { width: 32px; height: 32px; border-radius: 8px; }
+  .side-btn {
+    display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; color: var(--text-muted); text-decoration: none; font-weight: 600; font-size: 15px; margin-bottom: 4px; transition: all 0.2s;
+  }
+  .side-btn i { font-size: 18px; width: 24px; text-align: center; }
+  .side-btn:hover, .side-btn.active { color: var(--text); background: var(--hover-bg); }
+  .side-btn.active { color: var(--accent); }
+  .side-footer { margin-top: auto; padding: 20px 12px; border-top: 1px solid var(--border); }
+  .theme-btn {
+    display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; 
+    padding: 10px; border-radius: 14px; background: none; border: 1px solid var(--border);
+    color: var(--text); font-weight: 700; font-size: 14px; cursor: pointer; transition: all 0.2s;
+  }
+  .theme-btn:hover { background: var(--hover-bg); border-color: var(--text-muted); }
+  .theme-btn i { font-size: 16px; opacity: 0.8; }
 
-  /* Mobile */
-  @media (max-width:640px){
-    /* Header: keep all controls on one row */
-    .wrap{flex-wrap:nowrap; gap:6px}
-    .brand img{width:20px;height:20px}
-    /* mobile: use a search button; reveal input on demand */
-    #btnSearch{ display:inline-block }
-    #searchInput{ display:none }
-    body.search-open #searchInput{ display:block; flex:1 1 auto; min-width:0 }
-    body.search-open #btnSearch{ display:none }
-    /* show cancel only in search-open */
-    body.search-open #btnCancelSearch{ display:inline-block }
-    /* hide other controls during search-open */
-    body.search-open #dateSelect,
-    body.search-open #btnClear,
-    body.search-open #viewModeSel,
-    body.search-open #btnRefresh,
-    body.search-open #themeToggle{ display:none }
-    body.search-open #btnSettings{ display:none }
-    #dateSelect{max-width:110px; flex:0 0 auto}
-    #viewModeSel{max-width:90px; flex:0 0 auto}
-    #themeToggle{flex:0 0 auto}
-    select,input,button{padding:6px 8px}
-    .card{grid-template-columns:1fr}
-    .thumb-wrap{grid-column:1/-1}
-    .content,.content.full{grid-column:1/-1}
-    /* Compact rows on mobile: title on top; bottom bar with time left, meta right */
-    .row{ grid-template-columns: 1fr auto; grid-template-areas: 'title title' 'time meta'; align-items:end; }
-    .row .title{ grid-area: title; }
-    .row .time{ grid-area: time; font-size:10px; color:var(--muted); }
-    .row .meta{ grid-area: meta; display:flex; gap:8px; align-items:center; justify-content:flex-end; }
-    /* Hide popover on mobile */
-    .popover{ display:none !important }
-    /* on mobile: show short time (HH:MM), hide full */
-    .row .time .t-full{display:none}
-    .row .time .t-short{display:inline}
+  .app-container {
+    margin-left: var(--sidebar-width); flex: 1; display: grid; 
+    grid-template-columns: 1fr var(--right-panel-width);
+    width: calc(100vw - var(--sidebar-width)); min-height: 100vh;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   }
-  /* Mobile-only collapsible summary in compact rows */
-  @media (max-width:640px){
-    .row{ grid-template-columns: 72px 1fr auto; }
-    .row .meta{ display:flex; align-items:center; gap:8px; }
-    .col-toggle{
-      display:inline-flex; align-items:center; justify-content:center; border: none;
-      width:24px; height:24px; background:transparent; color:inherit; cursor:pointer;
-    }
-    .row-summary{
-      grid-column: 1 / -1; display:none; margin:6px 0 4px 0; padding:8px 10px;
-      font-size:.92rem; line-height:1.35; color:var(--muted,#94a3b8);
-      border-left:2px solid var(--border,#334155);
-      font-size:11px;
-    }
-    .row-summary.open{ display:block; }
-    /* Optional: hide desktop popover on mobile */
-    #popover{ display:none !important; }
-  }
-  @media (min-width:641px){
-    .col-toggle, .row-summary{ display:none !important; }
-  }
-</style>
-<style>
-  .layout{ max-width:1000px; margin:12px auto; padding:0 14px; }
+  .sidebar-collapsed .app-container { margin-left: 0; width: 100vw; }
+  .qv-collapsed .app-container { grid-template-columns: 1fr 0px; }
+  .qv-collapsed .quick-view { opacity: 0; pointer-events: none; }
 
-  /* When side panel is open (desktop), switch to 2 columns */
-  @media (min-width:641px){
-    body.side-open .layout{
-      display:grid;
-      grid-template-columns: minmax(0,1fr) 360px; /* list | side */
-      gap:16px;
-    }
-  }
-
-  #sidePanel{
-    display:none; /* hidden by default unless side-open & desktop */
-    background:var(--card);
-    border:1px solid var(--border);
-    border-radius:12px;
-    box-shadow:0 6px 20px rgba(0,0,0,.08);
-    overflow:hidden;
-  }
-  @media (min-width:641px){
-    body.side-open #sidePanel{ display:block; position:sticky; top:64px; height:fit-content; }
-  }
-  #sidePanel .sp-head{
-    padding:10px 12px; font-weight:700; border-bottom:1px solid var(--border); color:var(--muted-2);
-  }
-  #sidePanel .sp-body{ padding:12px; display:grid; gap:10px; }
-  #sidePanel .sp-title a{ color:var(--text); text-decoration:none; font-weight:750; }
-  #sidePanel .sp-title a:hover{ color:var(--accent-2); text-decoration:underline; }
-  #sidePanel .sp-summary{ color:var(--muted); font-size:13px; line-height:1.45; }
-  #sidePanel .sp-meta{ color:var(--muted-2); font-size:12px; display:grid; gap:4px; }
-
-  /* Header toggle active state */
-  #sideToggle.is-on{
-    background:var(--accent); color:#fff; border-color:var(--accent);
-  }
-
-  /* Hide the toggle on mobile */
-  @media (max-width:640px){
-    #sideToggle{ display:none; }
-  }
-
-  /* Optional: allow main to stretch when using the grid layout */
-  main#newsList{ max-width:unset; margin:0; padding:0; }
-
-  #sidePanel{ transition: top .12s ease; }
-
-  .new-flash { animation: newFlash 5s ease-out 1; }
-  @keyframes newFlash {
-    from { background: rgba(37, 99, 235, .12); } /* xanh nhạt */
-    to   { background: transparent; }
-  }
-  /* Side panel sticks under the header; allow internal scrolling */
-  @media (min-width:641px){
-    body.side-open #sidePanel{
-      position: sticky;
-      top: 64px;                   /* matches your header size */
-      max-height: calc(100vh - 64px);
-      display: block;
-      overflow: hidden;            /* contain the scroll to .sp-body */
-    }
-  }
-
-  /* Make only the content area scroll so the header stays pinned */
-  #sidePanel .sp-body{
-    overflow: auto;
-    max-height: calc(100vh - 64px - 44px); /* 44px ~= .sp-head height */
-  }
-
-  </style>
-  <style>
-  /* --- Read / Unread --- */
-  .row.is-unread, .card.is-unread{ border-color: var(--accent); }
-  .row.is-read .title a, .card.is-read .title a{ opacity:.78; }
-  .row.is-unread .title::before, .card.is-unread .title::before{
-    content:""; display:inline-block; width:6px; height:6px; border-radius:50%;
-    background:var(--accent); margin-right:6px; transform:translateY(-1px);
-  }
-
-  /* --- Badge NEW --- */
-  .badge-new{
-    display:inline-block; margin-left:6px; padding:2px 6px; border-radius:999px;
-    font-size:10px; font-weight:700; letter-spacing:.3px;
-    color:#0b1220; background:#93c5fd; /* nhạt ở dark mode cũng đủ tương phản */
-  }
-  [data-theme="dark"] .badge-new{ color:#0b1220; }
-
-  /* --- Scroll to top button --- */
-  .top-btn{
-    position:fixed; right:16px; bottom:16px; z-index:40;
-    width:40px; height:40px; border-radius:999px;
-    display:none; align-items:center; justify-content:center;
-    border:1px solid var(--border); background:var(--card); color:var(--text);
-    box-shadow:0 8px 24px rgba(0,0,0,.18); cursor:pointer;
-  }
-  .top-btn.show{ display:flex; }
-  .top-btn:hover{ background:var(--accent); color:#fff; border-color:var(--accent); }
-  #sourceSelect{ max-width: 180px; }
-  @media (max-width:640px){
-    #sourceSelect{ display:none; }
-  }
-</style>
-<style>
-  /* Settings modal */
-  .modal-backdrop{
-    position: fixed; inset: 0; background: rgba(0,0,0,.35);
-    display: none; align-items: center; justify-content: center; z-index: 1000;
-  }
-  .modal-backdrop.show{ display:flex; }
-  .modal{
-    width: min(520px, 92vw);
-    background: var(--card); color: var(--text);
-    border: 1px solid var(--border); border-radius: 14px;
-    box-shadow: 0 20px 60px rgba(0,0,0,.25);
-  }
-  .modal header{
-    padding: 12px 14px; border-bottom: 1px solid var(--border);
-    display:flex; align-items:center; justify-content:space-between;
-    background: transparent; position:unset; top:auto; z-index:auto;
-  }
-  .modal .body{ padding: 14px; display:grid; gap:14px; }
-  .modal .row{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
-  .modal .row > label{ font-weight:600; color: var(--muted-2); }
-  .modal .row .field{ display:flex; align-items:center; gap:10px; }
-  .modal footer{
-    padding: 12px 14px; border-top: 1px solid var(--border); display:flex; gap:8px; justify-content:flex-end;
-  }
-  .switch{
-    position:relative; width:46px; height:26px; border-radius:999px; border:1px solid var(--border); cursor:pointer;
-    background:var(--bg);
-  }
-  .switch input{ display:none; }
-  .switch .dot{
-    position:absolute; top:2px; left:2px; width:22px; height:22px; border-radius:50%;
-    background:var(--card); border:1px solid var(--border); transition: transform .15s ease;
-  }
-  .switch input:checked + .dot{ transform: translateX(20px); }
-  .range-val{ min-width:42px; text-align:right; color:var(--muted-2); font-variant-numeric: tabular-nums; }
+  /* FEED */
+  .main-feed { padding: 24px 40px; width: 100%; max-width: var(--max-content-width); margin: 0 auto; }
+  header { position: sticky; top: 0; background: var(--bg); z-index: 100; padding: 16px 0; margin-bottom: 40px; }
+  .header-actions { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
+  .btn-toggle { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 20px; padding: 4px; border-radius: 8px; }
+  .btn-toggle:hover { background: var(--hover-bg); color: var(--text); }
+  .discover-header { font-size: 36px; font-weight: 800; letter-spacing: -0.5px; }
   
-  /* Slide toggle (compact/rich) — class names scoped to avoid .thumb conflicts */
-  .slide-toggle{
-    position: relative;
-    display: inline-block;
-    width: 120px;
-    height: 32px;
-    cursor: pointer;
-  }
-  .slide-toggle input{ display:none; }
+  .nav-tabs { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--border); }
+  .nav-tabs::-webkit-scrollbar { display: none; }
+  .tab { padding: 12px 16px; font-size: 15px; font-weight: 700; color: var(--text-muted); cursor: pointer; position: relative; white-space: nowrap; margin-right: 8px; transition: color 0.2s; }
+  .tab.active { color: var(--text); }
+  .tab.active::after { content: ""; position: absolute; bottom: -1px; left: 0; width: 100%; height: 2px; background: var(--text); }
 
-  .slide-track{
-    position: absolute; inset: 0;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    background: transparent;
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 0 10px;
-    font-size: 13px; font-weight: 600;
-    color: white;
+  /* MODERN GRID SYSTEM */
+  #newsList { display: flex; flex-direction: column; gap: 40px; }
+  .card-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  
+  /* BASE CARD */
+  .card { 
+    display: flex; flex-direction: column; cursor: pointer; 
+    border-radius: 16px; position: relative;
+  }
+  .card:hover .card-title { color: var(--accent); }
+
+  /* HERO CARD */
+  .card-hero { flex-direction: row; gap: 40px; align-items: center; }
+  .card-hero .card-content { flex: 1.2; }
+  .card-hero .card-title { font-family: var(--font-serif); font-size: 32px; font-weight: 700; line-height: 1.2; margin-bottom: 16px; }
+  .card-hero .card-summary { font-size: 17px; color: var(--text-muted); line-height: 1.6; margin-bottom: 20px; display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .card-hero .thumb-wrap { flex: 1; aspect-ratio: 16/10; border-radius: 20px; overflow: hidden; border: 1px solid var(--border); }
+  .card-hero.reverse { flex-direction: row-reverse; }
+
+  /* GRID CARD */
+  .card-grid .thumb-wrap { width: 100%; aspect-ratio: 16/10; border-radius: 12px; overflow: hidden; margin-bottom: 16px; border: 1px solid var(--border); }
+  .card-grid .card-title { font-family: var(--font-serif); font-size: 18px; font-weight: 700; line-height: 1.4; margin-bottom: 12px; }
+  .card-grid .card-summary { display: none; }
+
+  .thumb { width:100%; height:100%; object-fit:cover; transition: transform 0.5s; }
+  .card:hover .thumb { transform: scale(1.03); }
+
+  /* META UI */
+  .card-meta { display: flex; align-items: center; gap: 12px; color: var(--text-muted); font-size: 13px; font-weight: 600; }
+  .source-icons { display: flex; -webkit-mask-image: linear-gradient(to right, black 80%, transparent 100%); mask-image: linear-gradient(to right, black 80%, transparent 100%); }
+  .source-icons img { width: 18px; height: 18px; border-radius: 4px; border: 2px solid var(--bg); margin-left: -6px; }
+  .source-icons img:first-child { margin-left: 0; }
+  .card-actions { margin-left: auto; display: flex; gap: 16px; opacity: 0; transition: opacity 0.2s; }
+  .card:hover .card-actions { opacity: 1; }
+  .action-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; font-size: 14px; }
+  .action-btn:hover { color: var(--text); }
+
+  /* IMMERSIVE QUICK VIEW (SIDE PANEL) */
+  .quick-view { 
+     padding: 0; border-left: 1px solid var(--border); overflow-y: auto; 
+     background: var(--bg); position: sticky; top: 0; height: 100vh;
+     transition: opacity 0.3s;
+  }
+  .qv-content { opacity: 1; } /* No animation for content updates */
+
+  .qv-image-hero { 
+     width: 100%; height: 240px; background: var(--hover-bg); overflow: hidden; position: relative;
+     border-bottom: 1px solid var(--border);
+  }
+  .qv-image-hero img { width: 100%; height: 100%; object-fit: cover; }
+  .qv-image-hero::after {
+     content: ""; position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.4), transparent);
   }
 
-  .slide-label{ z-index: 2; pointer-events: none; }
+  .qv-body { padding: 32px; display: flex; flex-direction: column; gap: 24px; }
+  .qv-label { font-size: 11px; font-weight: 900; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: -8px; }
+  .qv-title { font-family: var(--font-serif); font-size: 24px; font-weight: 700; color: var(--text); line-height: 1.25; }
+  .qv-summary { font-size: 16px; color: var(--text-muted); line-height: 1.7; white-space: pre-wrap; font-weight: 400; }
+  .qv-sec-title { font-size: 13px; font-weight: 800; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-top: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+  
+  .qv-footer { padding: 24px 32px; border-top: 1px solid var(--border); background: var(--bg); position: sticky; bottom: 0; }
+  .btn-read-full { 
+     display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; 
+     padding: 12px; background: var(--accent); color: white; border: none; border-radius: 12px;
+     font-weight: 700; font-size: 14px; text-decoration: none; transition: 0.2s;
+  }
+  .btn-read-full:hover { background: var(--accent-hover); transform: translateY(-2px); }
+  .qv-empty { text-align: center; opacity: 0.5; padding: 100px 40px; font-size: 15px; }
 
-  .slide-knob{
-    position: absolute; top: 1px; left: 2px;
-    height: 28px;
-    border-radius: 999px;
-    background: transparent;
-    transition: all .2s ease;
-    z-index: 1;
-    background: #22c55e;
+  /* MOBILE RESPONSIVE */
+  @media (max-width: 1100px) {
+    .sidebar { transform: translateX(-100%); width: 280px; }
+    .sidebar.open { transform: translateX(0); }
+    .app-container { margin-left: 0; display: block; width: 100%; transition: none; }
+    .sidebar-collapsed .app-container { width: 100%; }
+    .quick-view { display: none; }
+    .main-feed { padding: 16px; width: 100%; }
+    .mobile-top-nav { display: flex; align-items: center; gap: 16px; padding: 12px 16px; position: sticky; top: 0; background: var(--bg); z-index: 101; border-bottom: 1px solid var(--border); }
+    .discover-header { font-size: 28px; }
+    #btnToggleSidebar, #btnToggleQV { display: none; }
+    #newsList { gap: 32px; }
+    .card-hero { flex-direction: column; gap: 16px; align-items: flex-start; }
+    .card-hero .card-title { font-size: 22px; }
+    .card-hero .thumb-wrap { width: 100%; }
+    .card-row { display: flex; flex-direction: column; gap: 32px; }
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 400; display: none; }
+    .sidebar.open + .overlay { display: block; }
   }
 
-  /* Active (Gọn) = green; knob slides right */
-  .slide-toggle input:checked + .slide-track .slide-knob{
-    width: 50px; 
-    left: 70px;
-  }
-  .slide-toggle input:not(:checked) + .slide-track .slide-knob{
-    width: 80px; 
-    left: 0;
-  }
-  /* Highlight search matches */
-  mark.search-hit {
-    background: rgba(231, 191, 30, 0.5); /* yellow-500 */
-    color: white;
-    padding: 0 1px;
-    border-radius: 2px;
-  }
+  @media (min-width: 1101px) { .mobile-top-nav { display: none; } }
+  .loading { display: flex; justify-content: center; padding: 60px; }
 </style>
 </head>
 <body>
-<header>
-  <div class="wrap">
-    <a href="./" class="brand" title="Trang chủ">
-      <img src="assets/images/icon.jpg" alt="Logo" />
-    </a>
-    <select id="dateSelect" title="Chọn ngày"></select>
-    <select id="sourceSelect" title="Lọc theo nguồn">
-      <option value="__all__">Tất cả nguồn</option>
-    </select>    
-    <input id="searchInput" placeholder="Tìm tiêu đề" style="flex:1" />
-    <button id="btnCancelSearch" class="ghost" title="Đóng tìm kiếm"><i class="fa-solid fa-xmark"></i></button>
-    <button id="btnClear" class="ghost" style="display: none">Xoá</button>
-    <select id="viewModeSel" title="Chế độ hiển thị" style="display:none">
-      <option value="rich">Thoải Mái</option>
-      <option value="compact">Gọn</option>
-    </select>
-    <button id="btnRefresh" class="ghost" title="Tải lại dữ liệu"><i class="fa-solid fa-rotate-right"></i></button>
-    <button id="sideToggle" class="ghost" title="Bật/tắt tóm tắt (desktop)">
-      <i class="fa-solid fa-circle-info"></i>
-    </button>
-    <button id="themeToggle" class="ghost" title="Dark/Light" style="display:none">🌓</button>
-    <button id="btnSettings" class="ghost" title="Cài đặt">
-      <i class="fa-solid fa-gear"></i>
-    </button>
-    <button id="btnSearch" class="ghost" title="Tìm kiếm"><i class="fa-solid fa-magnifying-glass"></i></button>
+
+<div id="sidebarOverlay" class="overlay"></div>
+
+<aside class="sidebar" id="sidebar">
+  <a href="./" class="sidebar-logo"><img src="assets/images/icon.jpg" alt=""><span>AI News</span></a>
+  <nav>
+    <a href="#" class="side-btn active"><i class="fa-solid fa-compass"></i> Discover</a>
+    <a href="#" class="side-btn"><i class="fa-solid fa-magnifying-glass"></i> Search</a>
+    <a href="#" class="side-btn"><i class="fa-solid fa-chart-line"></i> Markets</a>
+    <a href="v1/index.html" class="side-btn"><i class="fa-solid fa-clock-rotate-left"></i> Legacy v1</a>
+  </nav>
+  <div class="side-footer">
+    <button class="theme-btn" id="btnTheme"><i class="fa-solid fa-moon"></i> <span>Appearance</span></button>
   </div>
-</header>
+</aside>
 
-<div class="layout">
-  <main id="newsList"></main>
+<div class="app-container">
+  <div class="mobile-top-nav">
+    <button class="btn-toggle" id="btnMenu"><i class="fa-solid fa-bars"></i></button>
+    <div style="font-weight: 800; font-size: 18px; flex: 1;">Discover</div>
+  </div>
 
-  <aside id="sidePanel" aria-live="polite">
-    <div class="sp-head">Tóm tắt nhanh</div>
-    <div class="sp-body">
-      <div class="sp-title">Di chuột vào một tin để xem tóm tắt…</div>
-      <div class="sp-summary"></div>
-      <div class="sp-tags"></div>
-      <div class="sp-meta"></div>
-      <div class="sp-content"></div>
-    </div>
+  <main class="main-feed">
+    <header>
+      <div class="header-actions">
+        <button class="btn-toggle" id="btnToggleSidebar" title="Toggle Sidebar"><i class="fa-solid fa-bars-staggered"></i></button>
+        <div class="discover-header">Discover</div>
+        <button class="btn-toggle" id="btnToggleQV" title="Toggle Quick View" style="margin-left: auto;"><i class="fa-solid fa-circle-info"></i></button>
+      </div>
+      <div class="nav-tabs">
+        <div class="tab active" data-cat="all">All</div>
+        <div class="tab" data-cat="tech">Tech</div>
+        <div class="tab" data-cat="finance">Finance</div>
+        <div class="tab" data-cat="science">Science</div>
+        <div class="tab" data-cat="world">World</div>
+      </div>
+    </header>
+
+    <div id="newsList"></div>
+    <div id="loader" class="loading"><i class="fa-solid fa-circle-notch fa-spin" style="font-size: 26px; color: var(--accent)"></i></div>
+  </main>
+
+  <aside class="quick-view" id="qvPanel">
+    <div class="qv-empty">Di chuột vào một tin để xem nội dung chi tiết…</div>
   </aside>
 </div>
 
-<div id="popover" class="popover" aria-hidden="true"></div>
-
-<button id="btnTop" class="top-btn" title="Lên đầu trang" aria-label="Lên đầu trang">
-  <i class="fa-solid fa-arrow-up"></i>
-</button>
-
-<div id="settingsBackdrop" class="modal-backdrop" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
-    <header>
-      <h3 id="settingsTitle" style="margin:0;font-size:16px;font-weight:750;">Cài đặt hiển thị</h3>
-      <button id="btnCloseSettings" class="ghost" title="Đóng"><i class="fa-solid fa-xmark"></i></button>
-    </header>
-    <div class="body">
-      <div class="row">
-        <label>Chủ đề</label>
-        <div class="field" style="gap:12px;">
-          <button id="optLight" class="ghost"><i class="fa-solid fa-sun"></i> Light</button>
-          <button id="optDark" class="ghost"><i class="fa-solid fa-moon"></i> Dark</button>
-        </div>
-      </div>
-
-      <div class="row">
-        <label>Kích thước tiêu đề</label>
-        <div class="field">
-          <button id="btnFontMinus" class="ghost" title="Giảm"><i class="fa-solid fa-minus"></i></button>
-          <span class="range-val"><span id="titleSizeVal">11</span> px</span>
-          <button id="btnFontPlus" class="ghost" title="Tăng"><i class="fa-solid fa-plus"></i></button>
-        </div>
-      </div>
-      
-      <div class="row">
-        <label>Chế độ hiển thị</label>
-        <div class="field">
-          <label class="slide-toggle">
-            <input id="viewModeToggle" type="checkbox" />
-            <span class="slide-track">
-              <span class="slide-label slide-left">Thoải Mái</span>
-              <span class="slide-label slide-right">Gọn</span>
-              <span class="slide-knob"></span>
-            </span>
-          </label>
-        </div>
-      </div>
-         
-    </div>
-    <footer>
-      <button id="btnResetSettings" class="ghost" title="Về mặc định">Đặt lại</button>
-      <button id="btnSaveSettings" class="primary">Lưu</button>
-    </footer>
-  </div>
-</div>
-
 <script>
-// ==================== CONFIG & STATE ====================
-const PERF = {
-  BATCH: 20,                // items per batch
-  MAX_DOM: 120,             // cap nodes in DOM to prevent jank
-  USE_SKELETON: true,      // shimmer placeholders (off = fastest)
-  ENABLE_SYMBOLS_IN_ALL: true // symbol tagging is heavy; keep off in "all"
-};
-
-const SKIP_SYMBOLS = new Set(['TIN','USD','THU','VND','CEO','THA','MTL','NET','TOP','HCM','TRA','HAI','LAI','THI','BIG','VUA','TAN']);
-
-const HIGHLIGHT_TITLE = [
-  "Vietstock Daily",
-  "Nhịp đập Thị trường",
-  "Sự kiện chứng khoán đáng chú ý",
-  "Thị trường tài chính 24h"
-]
-const MARKET_TITLE = [
-  "Trước giờ giao dịch",
-]
-const IDEA_TITLE = [
-  "Khuyến nghị"
-]
-const SOURCE_TYPE_BY_SOURCE = {
-  'Vietstock': 'vietstock',
-  'Markettimes': 'markettimes',
-  'Người Quan Sát': 'nguoiquansat',
-  'VnExpress': 'vnexpress',
-  'VnEconomy': 'vneconomy',
-  'Tin Nhanh Chứng Khoán': 'tnck',
-};
-
-const dateSelect = document.getElementById('dateSelect');
-const sourceSelect = document.getElementById('sourceSelect');
-const btnTop = document.getElementById('btnTop');
-const btnSearch  = document.getElementById('btnSearch');
-const searchInput= document.getElementById('searchInput');
-const btnClear   = document.getElementById('btnClear');
-const btnCancelSearch = document.getElementById('btnCancelSearch');
-const newsList   = document.getElementById('newsList');
-const viewModeSel= document.getElementById('viewModeSel');
-const btnRefresh = document.getElementById('btnRefresh');
-const themeToggle= document.getElementById('themeToggle');
-const popover    = document.getElementById('popover');
-
-const btnSettings = document.getElementById('btnSettings');
-const settingsBackdrop = document.getElementById('settingsBackdrop');
-const btnCloseSettings = document.getElementById('btnCloseSettings');
-
-const optLight = document.getElementById('optLight');
-const optDark  = document.getElementById('optDark');
-
-const btnFontMinus = document.getElementById('btnFontMinus');
-const btnFontPlus  = document.getElementById('btnFontPlus');
-const titleSizeVal   = document.getElementById('titleSizeVal');
-
-const btnSaveSettings  = document.getElementById('btnSaveSettings');
-const btnResetSettings = document.getElementById('btnResetSettings');
-
-const viewModeToggle = document.getElementById('viewModeToggle');
-
+// ==================== STATE & CONFIG ====================
 const state = {
-  items: [],       // single-day items
-  view: [],        // items to render
-  symbols: [],
-  selectedSources: new Set(JSON.parse(localStorage.getItem('srcSet')||'[]')),
-  cluster: localStorage.getItem('cluster') === '1',
-  timeWindow: localStorage.getItem('timeWindow') || 'all',
-  viewMode: localStorage.getItem('viewMode') || 'rich',
-  groupByDate: false,
-  prog: { datesQueue: [], curDate:null, curItems:[], curIdx:0, ready:false }
+  dates: [], loadedIdx: 0, allItems: [], viewItems: [], renderedCount: 0,
+  isLoading: false, isFinished: false, selectedCat: 'all', symbols: new Set(), activeIdx: -1
 };
-viewModeSel.value = state.viewMode;
-let currentFontSize = Number(getPrefs().titleSize || 12);
 
-// ==================== THEME ====================
-function applyTheme(mode){ document.documentElement.setAttribute('data-theme', mode); }
-function getPrefs(){ try{ return JSON.parse(localStorage.getItem('prefs')||'{}'); }catch{return {}} }
-function savePrefs(p){ localStorage.setItem('prefs', JSON.stringify(p)); }
+const CONFIG = { BATCH: 20 };
+const SKIP_SYMBOLS = new Set(['TIN','USD','THU','VND','CEO','THA','MTL','NET','TOP','HCM','TRA','HAI','LAI','THI','BIG','VUA','TAN']);
+const SOURCE_LOGOS = { 'Vietstock': 'vietstock', 'Markettimes': 'markettimes', 'Người Quan Sát': 'nguoiquansat', 'VnExpress': 'vnexpress', 'VnEconomy': 'vneconomy', 'Tin Nhanh Chứng Khoán': 'tnck', 'Vietnam+': 'vietnamplus', 'VTV': 'vtv', 'Thanh Niên': 'thanhnien', 'Tuổi Trẻ': 'tuoitre' };
 
-// cycle only between light ↔ dark
-function nextTheme(m){ return m === 'dark' ? 'light' : 'dark'; }
-function themeIconHTML(m){ return m === 'dark'
-  ? '<i class="fa-solid fa-moon"></i>'
-  : '<i class="fa-solid fa-sun"></i>'; }
-
-// init state (default to 'dark' if nothing saved)
-const prefs = getPrefs();
-let themeState = (prefs.theme === 'light' || prefs.theme === 'dark') ? prefs.theme : 'dark';
-
-function refreshThemeBtn(){ themeToggle.innerHTML = themeIconHTML(themeState); }
-
-// apply initial
-applyTheme(themeState);
-refreshThemeBtn();
-updateFontDisplay();
-
-// guard against ultra-fast clicks
-let themeLock = false;
-themeToggle.addEventListener('click', ()=>{
-  if (themeLock) return;
-  themeLock = true;
-
-  themeState = nextTheme(themeState);
-  applyTheme(themeState);
-  refreshThemeBtn();
-  savePrefs({ ...prefs, theme: themeState });
-
-  setTimeout(()=>{ themeLock = false; }, 120);
-});
+const newsList = document.getElementById('newsList');
+const loader = document.getElementById('loader');
+const qvPanel = document.getElementById('qvPanel');
+const btnMenu = document.getElementById('btnMenu');
+const btnToggleSidebar = document.getElementById('btnToggleSidebar');
+const btnToggleQV = document.getElementById('btnToggleQV');
+const sidebarOverlay = document.getElementById('sidebarOverlay');
+const btnTheme = document.getElementById('btnTheme');
 
 // ==================== HELPERS ====================
-let SYMBOLS_SET = new Set();
-function debounce(fn,ms){let t;return (...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms)};}
-function escapeHTML(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;'); }
-function dateKeyFromTs(ts){ const d=new Date(ts); const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,'0'); const dd=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${dd}`; }
-function formatDateLabel(ts){ return new Date(ts).toLocaleDateString('vi-VN'); }
-async function loadSymbols(){
+async function fetchJSON(url) { try { const r = await fetch(url, { cache: 'no-store' }); return r.ok ? await r.json() : null; } catch { return null; } }
+function escapeHTML(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;'); }
+function dateLabel(ts) { return new Date(ts).toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).toUpperCase(); }
+
+function getRelativeTime(ts) {
+  const diff = Date.now() - new Date(ts).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'vừa xong';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return new Date(ts).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+}
+
+// ==================== ENGINE ====================
+async function loadSymbols() {
   try {
     const res = await fetch('assets/symbols.csv');
     const csv = await res.text();
-    const lines = csv.split('\n').slice(1);
-    SYMBOLS_SET = new Set(
-      lines.map(line => {
-        const [symbol] = line.split(',');
-        return symbol?.trim().toUpperCase();
-      }).filter(Boolean)
-    );
-  } catch(e) { /* optional */ }
+    state.symbols = new Set(csv.split('\n').slice(1).map(l => l.split(',')[0]?.trim().toUpperCase()).filter(Boolean));
+  } catch {}
 }
-function findSymbols(text){
-  if(!text || SYMBOLS_SET.size === 0) return [];
-  
-  // Split by non-word chars
-  const words = text.toUpperCase().split(/[^A-Z0-9À-Ỹ]/u);
-  const out = new Set();
 
-  for (const w of words){
-    if (w.length >= 3 && SYMBOLS_SET.has(w)){
-      // kiểm tra nếu nằm trong SKIP_SYMBOLS
-      if (SKIP_SYMBOLS.has(w)){
-        // chỉ cho phép nếu có pattern "w:" trong nguyên văn
-        const regex = new RegExp(`\\b${w}:`, 'i');
-        if (!regex.test(text)) continue;
-      }
+function findSymbols(it) {
+  if (state.symbols.size === 0) return [];
+  const text = (it.title + ' ' + (it.summary||'')).toUpperCase();
+  const words = text.split(/[^A-Z0-9À-Ỹ]/u);
+  const out = new Set();
+  for (const w of words) {
+    if (w.length >= 3 && state.symbols.has(w)) {
+      if (SKIP_SYMBOLS.has(w) && !new RegExp(`\\b${w}:`, 'i').test(text)) continue;
       out.add(w);
     }
   }
   return [...out];
 }
 
-// (optional) simple title clustering — used only in single-day
-function normalizeTitle(t){ return (t||'').toLowerCase().replace(/[^\p{L}\p{N}\s]/gu,' ').replace(/\s+/g,' ').trim(); }
-function titleSim(a,b){
-  const bg=s=>{const x=normalizeTitle(s);let arr=[];for(let i=0;i<x.length-1;i++) arr.push(x.slice(i,i+2));return arr;};
-  const A=new Map(),B=new Map(); for(const k of bg(a)) A.set(k,(A.get(k)||0)+1); for(const k of bg(b)) B.set(k,(B.get(k)||0)+1);
-  let inter=0,total=0; for(const [k,v] of A){ if(B.has(k)) inter+=Math.min(v,B.get(k)); total+=v;} for(const [k,v] of B){ total+=v;}
-  return total? (2*inter)/total : 0;
-}
-function clusterByTitle(items, thr=0.62){
-  const clusters=[]; const used=new Array(items.length).fill(false);
-  for(let i=0;i<items.length;i++){
-    if(used[i]) continue; used[i]=true; const base=items[i]; const g=[base];
-    for(let j=i+1;j<items.length;j++){ if(used[j]) continue; if(titleSim(base.title, items[j].title)>=thr){ used[j]=true; g.push(items[j]); } }
-    g.sort((a,b)=>new Date(b.published)-new Date(a.published)); clusters.push(g[0]);
+async function loadNextDate() {
+  if (state.isLoading || state.loadedIdx >= state.dates.length) {
+    if (state.loadedIdx >= state.dates.length) { state.isFinished = true; loader.style.display = 'none'; }
+    return;
   }
-  return clusters;
-}
-
-// ==================== FETCH with ABORT ====================
-let aborter = null;
-async function fetchJSON(url){
-  if (aborter){ try{ aborter.abort(); }catch{} }
-  const ctrl = new AbortController(); aborter = ctrl;
-  const r = await fetch(url, { cache:'no-store', signal: ctrl.signal });
-  aborter = null;
-  if(!r.ok) throw new Error('HTTP '+r.status);
-  return r.json();
-}
-
-// ==================== RENDERING ====================
-const BATCH = PERF.BATCH;
-let rendered=0, observer=null, sentinel=null;
-
-function buildSource(it) {
-  const sourceType = it.source_type || SOURCE_TYPE_BY_SOURCE[it.source] || slugify(it.source);
-  const logoUrl = `assets/images/${sourceType}.png`;
-  return `<div class="source">
-        <img class="source-logo" src="${logoUrl}" alt="${sourceType}" loading="lazy"
-             onerror="this.style.display='none'">
-        <span class="source-name">${escapeHTML(it.source||'Unknown')}</span>
-      </div>`;
-}
-
-function buildTags(it) {
-  const willTag = dateSelect.value !== 'all' || PERF.ENABLE_SYMBOLS_IN_ALL;
-  const tags = willTag ? findSymbols(it.title + ';' + (it.summary||'') + ';' + (it.content_text||'')).map(s=>`<span class="tag">${s}</span>`).join(' ') : '';
-  return tags;
-}
-
-function buildCard(it, i){
-  const badgeHTML = isNewItem(it) ? '<span class="badge-new">NEW</span>' : '';
-
-  const hasImg = !!it.image;
-  const card = document.createElement('article');
-  card.dataset.link = it.link;
-  card.className = 'card';
-  card.dataset.idx = i;
-  card.setAttribute('data-summary', (it.summary||'').replace(/\n/g,' '));
-
-  card.innerHTML = `<div class="thumb-wrap">
-    <img class="thumb" loading="lazy" decoding="async" src="${hasImg ? it.image : "assets/images/no-image.webp"}" alt=""></div>
-    <div class="content">
-      <h3 class="title">
-        <a href="${it.link}" target="_blank" rel="noopener">
-          ${highlightTextDiacritics(it.title, searchInput.value.trim())} ${badgeHTML}
-        </a>
-      </h3>
-      <p class="summary clamp">${highlightTextDiacritics(it.summary||'', searchInput.value.trim())}</p>
-      <div class="card-tags">${buildTags(it)}</div>
-      <div class="meta">${buildSource(it)}<span>${new Date(it.published).toLocaleString('vi-VN')}</span></div>
-    </div>`;
-
-  return card;
-}
-
-function slugify(s){
-  return (s||'')
-    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')  // strip accents
-    .toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
-}
-function buildRow(it, i){
-  const badgeHTML = isNewItem(it) ? '<span class="badge-new">NEW</span>' : '';
-
-  const row=document.createElement('div'); row.className='row';
-  row.dataset.link = it.link;
-  row.dataset.idx = i;
-  // For desktop popover:
-  row.setAttribute('data-summary', (it.summary||'').replace(/\n/g,' '));
-
-  const timeStr = new Date(it.published).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'});
-  const sumId = `sum-${i}-${Math.random().toString(36).slice(2,7)}`;
-
-  const summaryIcon = it.content_html ? `<i class="fa-solid fa-book"></i>` : `<i class="fa-solid fa-circle-info"></i>`;
-  const summaryBtn = it.summary ? `<button class="col-toggle" aria-expanded="false" aria-controls="${sumId}" title="Xem tóm tắt">
-        ${summaryIcon}
-      </button>` : '';
-
-  let titleText = it.title;
-  for(const pat of HIGHLIGHT_TITLE){
-    const re = new RegExp(pat, 'i');
-    if(re.test(titleText)){ titleText += ' ⭐'; break; }
+  state.isLoading = true;
+  const date = state.dates[state.loadedIdx++];
+  const data = await fetchJSON(`news/${date}.json`);
+  if (data) {
+    const items = Object.values(data).sort((a,b) => new Date(b.published) - new Date(a.published));
+    state.allItems.push(...items);
+    applyFilters();
   }
-
-  for(const pat of MARKET_TITLE){
-    const re = new RegExp(pat, 'i');
-    if(re.test(titleText)){ titleText += ' ⏰'; break; }
-  }
-
-  for(const pat of IDEA_TITLE){
-    const re = new RegExp(pat, 'i');
-    if(re.test(titleText)){ titleText += ' 💡'; break; }
-  }
-
-  row.innerHTML = `
-    <div class="time"><span class="t-full">${timeStr}</span><span class="t-short">${timeStr}</span></div>
-    <div class="title">
-      <a href="${it.link}" target="_blank" rel="noopener">
-        ${highlightTextDiacritics(titleText, searchInput.value.trim())}
-      </a> ${badgeHTML} ${buildTags(it)}
-    </div>
-    <div class="meta">
-      ${buildSource(it)}
-      ${summaryBtn}
-    </div>
-    <div id="${sumId}" class="row-summary">${escapeHTML(it.summary||'')}${it.content_html||''}</div>
-  `;
-
-  return row;
-}
-function buildNode(i){
-  const it = state.view[i];
-  const frag = document.createDocumentFragment();
-  if(state.groupByDate){
-    const curKey = dateKeyFromTs(it.published);
-    const prevKey = i>0 ? dateKeyFromTs(state.view[i-1].published) : null;
-    if(i===0 || curKey!==prevKey){
-      const h=document.createElement('h4'); h.className='date-sep'; h.textContent = formatDateLabel(it.published);
-      frag.appendChild(h);
-    }
-  }
-  const node = state.viewMode==='compact' ? buildRow(it, i) : buildCard(it);
-  applyReadClass(node, it);
-  if (NEW_KEYS.has(itemKey(it))) node.classList.add('new-flash');
-  node.dataset.idx = i;
-  frag.appendChild(node);
-  return frag;
+  state.isLoading = false;
 }
 
-// Skeleton (optional, static by default)
-let skelEl=null;
-function buildSkeleton(n=5){
-  const wrap=document.createElement('div'); wrap.className='skel-wrap';
-  for(let i=0;i<n;i++){
-    if(state.viewMode==='compact'){
-      const r=document.createElement('div'); r.className='skel-row';
-      r.innerHTML=`<div class="skel-line"></div><div class="skel-line w80"></div><div><div class="skel-line w60"></div></div>`;
-      wrap.appendChild(r);
-    }else{
-      const card=document.createElement('div'); card.className='skel-card';
-      card.innerHTML=`<div class="skel-thumb"></div>
-                      <div class="skel-lines">
-                        <div class="skel-line w80"></div>
-                        <div class="skel-line"></div>
-                        <div class="skel-line w60"></div>
-                      </div>`;
-      wrap.appendChild(card);
-    }
-  }
-  return wrap;
-}
-function showSkeleton(count=5){ if(!PERF.USE_SKELETON) return; hideSkeleton(); skelEl = buildSkeleton(count); newsList.appendChild(skelEl); }
-function hideSkeleton(){ if(skelEl){ skelEl.remove(); skelEl=null; } }
-
-function pruneDom(){
-  while (newsList.childElementCount > PERF.MAX_DOM){
-    newsList.removeChild(newsList.firstElementChild);
-  }
-}
-
-function renderBatch(){
-  const end=Math.min(rendered+BATCH, state.view.length);
-  const frag=document.createDocumentFragment();
-  for(let i=rendered;i<end;i++){ frag.appendChild(buildNode(i)); }
-  newsList.appendChild(frag);
-  rendered=end;
-
-  if(sentinel){ sentinel.remove(); sentinel=null; }
-  if(rendered < state.view.length || canFillMore()){
-    sentinel=document.createElement('div'); sentinel.style.height='1px'; newsList.appendChild(sentinel);
-    observer.observe(sentinel);
-  }
-  pruneDom();
-}
-
-function resetAndRender(){
-  rebuildSourceOptions(state.items.length ? state.items : state.view);
-
-  newsList.innerHTML=''; hideSkeleton(); rendered=0;
-  if(observer){ observer.disconnect(); }
-  observer = new IntersectionObserver(async (entries)=>{
-    if(entries.some(e=>e.isIntersecting)){
-      observer.unobserve(entries[0].target);
-      if (PERF.USE_SKELETON) showSkeleton(3);
-      await ensureFilled(rendered + BATCH);
-      if (PERF.USE_SKELETON) hideSkeleton();
-      renderBatch();
-    }
-  }, { rootMargin:'600px', threshold:0.01 });
-
-  if (PERF.USE_SKELETON) showSkeleton();
-  ensureFilled(BATCH).then(()=>{ if (PERF.USE_SKELETON) hideSkeleton(); renderBatch(); })
-                      .catch(()=>{ if (PERF.USE_SKELETON) hideSkeleton(); });
-}
-
-function canFillMore(){
-  return dateSelect.value==='all' && (state.prog.curIdx < state.prog.curItems.length || state.prog.datesQueue.length>0);
-}
-
-// ==================== FILTERING & FILLING ====================
-function removeDiacritics(str){
-  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-}
-
-function filterPredicate(it){
-  const q = (searchInput.value||'').trim().toLowerCase();
-  if(q){
-    const text = (it.title || "").toLowerCase();
-
-    // bỏ dấu ở cả query và title
-    const normText = removeDiacritics(text);
-    const normQuery = removeDiacritics(q);
-
-    if(!normText.includes(normQuery)) return false;
-  }
-
-  if(state.selectedSources.size){
-    if(!state.selectedSources.has(it.source || 'Unknown')) return false;
-  }
-
-  if(state.timeWindow!=='all'){
-    const now = Date.now();
-    const ms = state.timeWindow==='24h' ? 24*3600*1000 
-             : state.timeWindow==='3d' ? 3*86400*1000 
-             : 7*86400*1000;
-    if((now - new Date(it.published).getTime()) > ms) return false;
-  }
-
-  return true;
-}
-
-let loading=false, loadingDate=false;
-
-async function ensureFilled(n){
-  if(dateSelect.value!=='all' || !state.prog.ready) return;
-  if (loading) return;
-  loading = true;
-  try{
-    while(state.view.length < n){
-      // consume current date items
-      while(state.prog.curIdx < state.prog.curItems.length && state.view.length < n){
-        const it = state.prog.curItems[state.prog.curIdx++];
-        if(filterPredicate(it)){ state.view.push(it); }
-      }
-      if(state.view.length >= n) break;
-
-      // move to next date
-      if(state.prog.curIdx >= state.prog.curItems.length){
-        if(state.prog.datesQueue.length === 0) break;
-        await loadNextDateFile();
-      }
-      await new Promise((res)=> (window.requestIdleCallback? requestIdleCallback(()=>res()) : setTimeout(res,16)));
-    }
-  } finally { loading=false; }
-}
-
-async function loadNextDateFile(){
-  if (loadingDate) return;
-  const P = state.prog;
-  if(P.datesQueue.length===0) return;
-  loadingDate = true;
-  try{
-    const nextDate = P.datesQueue.shift();
-    P.curDate = nextDate;
-    const data = await fetchJSON('news/'+nextDate+'.json');
-    P.curItems = Object.values(data).sort((a,b)=> new Date(b.published)-new Date(a.published));
-    P.curIdx = 0;
-  } finally { loadingDate = false; }
-}
-
-async function initProgressiveAll(dates){
-  state.groupByDate = true;
-  state.view = [];
-  state.items = [];
-  state.prog = { datesQueue:[...dates], curDate:null, curItems:[], curIdx:0, ready:true };
-  rebuildSourceOptions(state.prog.curItems);
-  await loadNextDateFile(); // prime first date
-}
-
-function applyFilterSingleDay(){
-  const q = searchInput.value.trim().toLowerCase();
-  let arr = state.items.filter(it=>{
-    const text=(it.title+' '+(it.summary||'')).toLowerCase();
-    return !q || text.includes(q);
+function applyFilters() {
+  const cat = state.selectedCat;
+  state.viewItems = state.allItems.filter(it => {
+    if (cat === 'all') return true;
+    const text = (it.title + ' ' + (it.summary || '')).toLowerCase();
+    const map = { tech: ['apple', 'google', 'microsoft', 'ai ', 'công nghệ', 'chip', 'máy tính'], finance: ['chứng khoán', 'tài chính', 'vàng', 'lãi suất', 'bank', 'ngân hàng', 'usd'], science: ['khoa học', 'vũ trụ', 'y tế', 'nghiên cứu'], world: ['thế giới', 'mỹ', 'nga', 'nato', 'ukraine'] };
+    return (map[cat] || []).some(k => text.includes(k));
   });
-  if(state.selectedSources.size){ arr = arr.filter(it=> state.selectedSources.has(it.source||'Unknown')); }
-  if(state.timeWindow!=='all'){
-    const now=Date.now();
-    const ms = state.timeWindow==='24h'? 24*3600*1000 : state.timeWindow==='3d'? 3*86400*1000 : 7*86400*1000;
-    arr = arr.filter(it => (now - new Date(it.published).getTime()) <= ms);
-  }
-  state.view = state.cluster ? clusterByTitle(arr) : arr.slice();
-  state.view.sort((a,b)=> new Date(b.published)-new Date(a.published));
-  state.groupByDate = false;
-  resetAndRender();
 }
 
-const runFilter = debounce(async ()=>{
-  if (aborter) { try { aborter.abort(); } catch{} }
-  loading=false; loadingDate=false;
+function renderCard(it, idx, type) {
+  const logoSuffix = SOURCE_LOGOS[it.source] || 'unknown';
+  const time = getRelativeTime(it.published);
+  const isHero = type === 'hero';
+  const tags = findSymbols(it).map(s => `<span class="tag">${s}</span>`).join('');
+  
+  const el = document.createElement('article');
+  el.className = `card ${isHero ? 'card-hero' : 'card-grid'}`;
+  if (isHero && Math.floor(idx / 4) % 2 === 1) el.classList.add('reverse');
 
-  if(dateSelect.value==='all'){
-    const idx = await fetchJSON('news/index.json');
-    await initProgressiveAll(idx.dates || []);
-    resetAndRender();
-  }else{
-    applyFilterSingleDay();
-  }
-}, 120);
+  el.onmouseenter = () => {
+    document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+    state.activeIdx = idx;
+    
+	const tags = findSymbols(it).map(s => `<span class="tag">${s}</span>`).join('');
+    qvPanel.innerHTML = `
+      <div class="qv-content">
+        ${it.image ? `<div class="qv-image-hero"><img src="${it.image}" alt=""></div>` : ''}
+        <div class="qv-body">
+          <div class="qv-label">Nội dung chi tiết</div>
+          <h2 class="qv-title">${escapeHTML(it.title)}</h2>
+          <div class="qv-sec-title">Tóm tắt trí tuệ nhân tạo</div>
+          <div class="qv-summary">${escapeHTML(it.summary || 'Không có bản tóm tắt chi tiết cho tin này.')}</div>
+          
+          ${tags ? `<div class="qv-sec-title">Cổ phiếu liên quan</div><div style="display:flex; gap:8px; flex-wrap:wrap;">${tags}</div>` : ''}
+          
+          <div class="qv-sec-title">Thông tin nguồn</div>
+          <div class="card-meta">
+            <div class="source-icons"><img src="assets/images/${logoSuffix}.png" onerror="this.style.display='none'"></div>
+            <span>${escapeHTML(it.source)} • ${time}</span>
+          </div>
+        </div>
+        <div class="qv-footer">
+          <a href="${it.link}" target="_blank" class="btn-read-full"><i class="fa-solid fa-arrow-up-right-from-square"></i> Đọc tin đầy đủ</a>
+        </div>
+      </div>
+    `;
+  };
+  el.onclick = () => window.open(it.link, '_blank');
 
-// ==================== INDEX & DAY LOAD ====================
-async function loadIndex(){
-  await loadSymbols();
-  const idx = await fetchJSON('news/index.json');
-  const dates = idx.dates || [];
-
-  // build selector
-  dateSelect.innerHTML='';
-  const allOption=document.createElement('option'); allOption.value='all'; allOption.textContent='Tất cả';
-  dateSelect.appendChild(allOption);
-  dates.forEach(d=>{const o=document.createElement('option');o.value=d;o.textContent=d;dateSelect.appendChild(o)});
-
-  const udate=new URLSearchParams(location.search).get('date');
-  dateSelect.value = udate && (udate==='all' || dates.includes(udate)) ? udate : 'all';
-
-  if(dateSelect.value==='all'){
-    await initProgressiveAll(dates);
-    resetAndRender(); // first paint: 20
-  }else{
-    await loadDay(dateSelect.value);
-  }
+  el.innerHTML = `
+    <div class="card-content">
+      <div class="card-meta" style="margin-bottom: 12px;">
+        <div class="source-icons"><img src="assets/images/${logoSuffix}.png" onerror="this.style.display='none'"></div>
+        <span>${escapeHTML(it.source)} • ${time}</span>
+      </div>
+      <h3 class="card-title">${escapeHTML(it.title)}</h3>
+      <p class="card-summary">${escapeHTML(it.summary || '')}</p>
+      <div class="card-meta">
+        ${tags ? `<div style="display:flex; gap:6px;">${tags}</div>` : `<span>Original source</span>`}
+        <div class="card-actions">
+           <button class="action-btn"><i class="fa-regular fa-heart"></i></button>
+           <button class="action-btn"><i class="fa-solid fa-ellipsis"></i></button>
+        </div>
+      </div>
+    </div>
+    ${it.image ? `<div class="thumb-wrap"><img src="${it.image}" class="thumb" loading="lazy" onerror="this.parentElement.style.display='none'"></div>` : ''}
+  `;
+  return el;
 }
 
-async function loadDay(d){
-  if(d==='all') return;
-  const data = await fetchJSON('news/'+d+'.json');
-  state.items = Object.values(data);
-  rebuildSourceOptions(state.items);
-  applyFilterSingleDay();
+function renderBatch() {
+  try {
+    const frag = document.createDocumentFragment();
+    const pattern = ['hero', 'grid', 'grid', 'grid'];
+    
+    let i = state.renderedCount;
+    const targetEnd = Math.min(i + CONFIG.BATCH, state.viewItems.length);
+
+    while (i < targetEnd) {
+      const it = state.viewItems[i];
+      const type = pattern[i % pattern.length];
+      const remaining = targetEnd - i;
+
+      if (type === 'hero' || window.innerWidth <= 1100 || remaining < 3) {
+        frag.appendChild(renderCard(it, i, 'hero'));
+        i++;
+      } else {
+        const row = document.createElement('div');
+        row.className = 'card-row';
+        for (let j = 0; j < 3 && i < targetEnd; j++, i++) {
+          row.appendChild(renderCard(state.viewItems[i], i, 'grid'));
+        }
+        frag.appendChild(row);
+      }
+    }
+
+    newsList.appendChild(frag);
+    state.renderedCount = i;
+    if (state.renderedCount >= state.viewItems.length && !state.isFinished) {
+      loadNextDate().then(() => { if (state.renderedCount < state.viewItems.length) renderBatch(); });
+    }
+  } catch (e) {
+    console.error("Render error:", e);
+    loader.style.display = 'none';
+  }
 }
 
 // ==================== EVENTS ====================
-searchInput.addEventListener('input', runFilter);
-btnClear.addEventListener('click', ()=>{ searchInput.value=''; runFilter(); searchInput.focus(); });
-
-// mobile search toggle
-btnSearch.addEventListener('click', ()=>{ document.body.classList.add('search-open'); setTimeout(()=> searchInput.focus(), 0); });
-searchInput.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ document.body.classList.remove('search-open'); searchInput.blur(); }});
-searchInput.addEventListener('blur', ()=>{ if(window.matchMedia('(max-width:640px)').matches && !searchInput.value){ document.body.classList.remove('search-open'); }});
-btnCancelSearch.addEventListener('click', ()=>{ document.body.classList.remove('search-open'); searchInput.blur(); searchInput.value=''; runFilter(); });
-
-dateSelect.addEventListener('change', async ()=>{
-  if (aborter) { try { aborter.abort(); } catch{} }
-  if(dateSelect.value==='all'){
-    const idx = await fetchJSON('news/index.json');
-    await initProgressiveAll(idx.dates || []);
-    resetAndRender();
-  }else{
-    await loadDay(dateSelect.value);
-  }
+document.querySelectorAll('.tab').forEach(t => {
+  t.onclick = () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    state.selectedCat = t.dataset.cat;
+    state.renderedCount = 0; newsList.innerHTML = ''; applyFilters(); renderBatch();
+  };
 });
 
-async function refreshNow(){
-  try {
-    isRefreshing = true;
-    const prev = new Set(state.view.map(it => itemKey(it)));
-    const todayKey = dateKeyFromTs(Date.now());
-
-    if (dateSelect.value === 'all') {
-      // Chế độ all: không gắn NEW (tránh nhiễu & tốn tính toán)
-      const idx = await fetchJSON('news/index.json');
-      NEW_KEYS = new Set();
-    } else {
-      await loadDay(dateSelect.value);
-
-      if (dateSelect.value === todayKey) {
-        // NEW = item xuất hiện sau refresh, và đúng ngày hôm nay
-        NEW_KEYS = new Set(
-          state.view
-            .filter(it => dateKeyFromTs(it.published) === todayKey)
-            .filter(it => !prev.has(itemKey(it)))
-            .map(itemKey)
-        );
-      } else {
-        NEW_KEYS = new Set(); // ngày cũ không gắn NEW
-      }
-    }
-
-    lastRefreshAt = Date.now();
-  } finally {
-    isRefreshing = false;
-  }
-}
-
-btnRefresh.addEventListener('click', refreshNow);
-
-viewModeSel.addEventListener('change', ()=>{
-  state.viewMode = viewModeSel.value;
-  localStorage.setItem('viewMode', state.viewMode);
-  resetAndRender();
-});
-localStorage.setItem('viewMode', state.viewMode);
-
-// Click bất kỳ row/card nào -> đánh dấu đã đọc
-newsList.addEventListener('click', (e)=>{
-  const host = e.target.closest('.row, .card');
-  if(!host) return;
-
-  const idx = Number(host.dataset.idx);
-  const it = state.view[idx];
-  if(!it) return;
-
-  const k = itemKey(it);
-  SEEN_KEYS.add(k);
-  rememberSeen();
-
-  host.classList.remove('is-unread');
-  host.classList.add('is-read');
-}, true);
-
-// Popover: event delegation (no per-row listeners)
-newsList.addEventListener('mouseover', (e)=>{
-  const el = e.target.closest('.row, .card');
-  if(!el) return;
-
-  const idx = el.dataset.idx;
-  if(idx != null){
-    const it = state.view[Number(idx)];
-    setSidePanel(it);
-  }
-
-  const pref = localStorage.getItem('sideOpen') !== '0';
-  if (!pref) {
-    const row = e.target.closest('.row');
-    if(!row) return;
-    const text = row.getAttribute('data-summary');
-    popover.innerText = text;
-    const r = row.getBoundingClientRect();
-    popover.style.right = (window.innerWidth - r.right) + 'px';
-    popover.style.top  = (r.bottom + window.scrollY + 3) + 'px';
-    popover.classList.add('show'); popover.setAttribute('aria-hidden','false');
-  }
-});
-
-// Don't clear side panel when moving mouse from list -> side panel
-newsList.addEventListener('mouseout', (e)=>{
-  const to = e.relatedTarget;
-  // If pointer is still inside the list OR moved into sidePanel, do nothing
-  if (to && (newsList.contains(to) || sidePanel.contains(to))) return;
-
-  hidePopover();
-  // Only clear the panel if we're not hovering the side panel
-  spTitle.innerHTML = 'Di chuột vào một tin để xem tóm tắt…';
-  spSummary.innerHTML = '';
-  spTags.innerHTML = '';
-  spMeta.innerHTML = '';
-  spContent.innerHTML = '';
-});
-
-// Mobile-only: toggle summary panel when tapping the caret button
-newsList.addEventListener('click', (e)=>{
-  const btn = e.target.closest('.col-toggle');
-  if(!btn) return;
-  if(!window.matchMedia('(max-width:640px)').matches) return; // only on mobile
-
-  const id = btn.getAttribute('aria-controls');
-  const panel = document.getElementById(id);
-  if(!panel) return;
-
-  const expanded = btn.getAttribute('aria-expanded') === 'true';
-  btn.setAttribute('aria-expanded', String(!expanded));
-  panel.classList.toggle('open', !expanded);
-
-  const chev = btn.querySelector('.chev');
-  if(chev){ chev.style.transform = !expanded ? 'rotate(180deg)' : 'rotate(0deg)'; }
-});
-// --- Desktop: open whole row/card on click (debounced & safe) ---
-let _lastOpenAt = 0;
-
-newsList.addEventListener('click', (e) => {
-  // desktop only
-  if (window.matchMedia('(max-width:640px)').matches) return;
-
-  // let real links handle themselves
-  if (e.target.closest('a[href]')) return;
-
-  // ignore interactive controls (summary toggle, buttons, inputs…)
-  if (e.target.closest('.col-toggle, button, input, select, textarea, label')) return;
-
-  // only plain left click, no modifiers
-  if (e.button !== 0) return;
-  if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
-
-  // don't fire while selecting text
-  const sel = window.getSelection && window.getSelection();
-  if (sel && String(sel).length) return;
-
-  // find the clicked host
-  const host = e.target.closest('.row, .card');
-  if (!host) return;
-
-  const link = host.dataset.link;
-  if (!link) return;
-
-  // debounce to avoid double-open (Edge/extensions)
-  const now = Date.now();
-  if (now - _lastOpenAt < 600) return;
-  _lastOpenAt = now;
-
-  window.open(link, '_blank', 'noopener');
-}, false);
-
-function hidePopover(){ popover.classList.remove('show'); popover.setAttribute('aria-hidden','true'); }
-
-// ===== SIDE PANEL UPDATER =====
-const sideToggle = document.getElementById('sideToggle');
-const sidePanel  = document.getElementById('sidePanel');
-const spTitle = sidePanel.querySelector('.sp-title');
-const spSummary = sidePanel.querySelector('.sp-summary');
-const spMeta = sidePanel.querySelector('.sp-meta');
-const spTags = sidePanel.querySelector('.sp-tags');
-const spContent = sidePanel.querySelector('.sp-content');
-
-function setSideOpen(on){
-  const isMobile = window.matchMedia('(max-width:640px)').matches;
-  const final = on && !isMobile; // never open on mobile
-  document.body.classList.toggle('side-open', final);
-  sideToggle.classList.toggle('is-on', final);
-  localStorage.setItem('sideOpen', on ? '1' : '0'); // store user preference
-}
-
-// default: open (desktop). Respect saved preference.
-const savedSide = localStorage.getItem('sideOpen');
-setSideOpen(savedSide === null ? true : savedSide === '1');
-
-// if user resizes across breakpoints, re-apply
-window.addEventListener('resize', ()=> {
-  const pref = localStorage.getItem('sideOpen') !== '0';
-  setSideOpen(pref);
-});
-
-sideToggle.addEventListener('click', ()=>{
-  const pref = localStorage.getItem('sideOpen') !== '0';
-  setSideOpen(!pref);
-});
-
-function setSidePanel(it){
-  if(!document.body.classList.contains('side-open') || !it) return;
-  const src  = it.source || 'Unknown';
-  spTitle.innerHTML = it.link
-  ? `<a href="${it.link}" target="_blank" rel="noopener">${escapeHTML(it.title)}</a>`
-  : escapeHTML(it.title);
-
-  spTags.innerHTML = buildTags(it);
-
-  spSummary.textContent = it.summary || '';
-
-  const time = new Date(it.published).toLocaleString('vi-VN');
-  spMeta.innerHTML = `${buildSource(it)}<span>${time}</span>`;
-
-  spContent.innerHTML = it.content_html || '';
-  // If there's long content, ensure the body can scroll
-  const hasLongContent = !!it.content_html && spContent.textContent.length > 0;
-  sidePanel.querySelector('.sp-body').style.overflow = hasLongContent ? 'auto' : 'hidden';
-}
-
-// ---- New item tracking (per-day) ----
-const SEEN_KEYS = new Set(JSON.parse(localStorage.getItem('seenKeys') || '[]'));
-
-function rememberSeen(limit=500){
-  localStorage.setItem('seenKeys', JSON.stringify([...SEEN_KEYS].slice(-limit)));
-}
-
-const SEEN_CACHE = {}; // cache Set theo dayKey
-let NEW_KEYS = new Set();
-
-function itemKey(it){
-  return `${it.link || ''}|${it.published || ''}`;
-}
-
-function dayKeyOf(itOrTs){
-  const ts = typeof itOrTs === 'object' ? itOrTs.published : itOrTs;
-  return dateKeyFromTs(ts); // bạn đã có sẵn helper này
-}
-
-function getSeenSet(dayKey){
-  if (!SEEN_CACHE[dayKey]) {
-    SEEN_CACHE[dayKey] = new Set(SEEN_BY_DATE[dayKey] || []);
-  }
-  return SEEN_CACHE[dayKey];
-}
-
-function persistSeen(dayKey, limit=500){
-  const set = getSeenSet(dayKey);
-  SEEN_BY_DATE[dayKey] = [...set].slice(-limit);
-  localStorage.setItem('seenByDate', JSON.stringify(SEEN_BY_DATE));
-}
-
-// áp class read/unread theo ngày của item
-function applyReadClass(node, it){
-  const dk = dayKeyOf(it);
-  const seen = getSeenSet(dk);
-  if (seen.has(itemKey(it))) node.classList.add('is-read');
-  else node.classList.add('is-unread');
-}
-
-// đánh dấu đã đọc cho đúng “ngày”
-function markSeen(it, hostEl){
-  const dk = dayKeyOf(it);
-  const seen = getSeenSet(dk);
-  const k = itemKey(it);
-  if (!seen.has(k)) { seen.add(k); persistSeen(dk); }
-  if (hostEl){
-    hostEl.classList.remove('is-unread');
-    hostEl.classList.add('is-read');
-  }
-}
-
-// NEW chỉ tính theo bộ NEW_KEYS hiện tại
-function isNewItem(it){
-  return NEW_KEYS.has(itemKey(it));
-}
-
-let lastRefreshAt = 0;
-const AUTO_MS = 90 * 1000; // 1.5 phút; đổi 60k-120k theo ý bạn
-
-setInterval(()=>{
-  if (document.visibilityState === 'visible') {
-    refreshNow();
-  }
-}, AUTO_MS);
-
-// nếu chuyển về tab sau >60s thì refresh ngay
-document.addEventListener('visibilitychange', ()=>{
-  if (document.visibilityState === 'visible') {
-    if (Date.now() - lastRefreshAt > 60*1000) refreshNow();
-  }
-});
-
-(function enablePTR(){
-  let startY = 0, pulling = false;
-  const THRESH = 60;
-
-  window.addEventListener('touchstart', (e)=>{
-    if (window.scrollY === 0) { startY = e.touches[0].clientY; pulling = true; }
-  }, {passive:true});
-
-  window.addEventListener('touchmove', (e)=>{
-    if (!pulling) return;
-    const dy = e.touches[0].clientY - startY;
-    if (dy > THRESH) { pulling = false; refreshNow(); }
-  }, {passive:true});
-
-  window.addEventListener('touchend', ()=> pulling = false, {passive:true});
-})();
-
-function applyReadClass(node, it){
-  const k = itemKey(it);
-  if (SEEN_KEYS.has(k)) {
-    node.classList.add('is-read');
-  } else {
-    node.classList.add('is-unread');
-  }
-}
-
-function isNewItem(it){
-  return NEW_KEYS.has(itemKey(it));
-}
-
-// Scroll to top
-window.addEventListener('scroll', ()=>{
-  const y = window.scrollY || document.documentElement.scrollTop;
-  btnTop.classList.toggle('show', y > 180);
-});
-btnTop.addEventListener('click', ()=>{
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-});
-
-function rebuildSourceOptions(items = []) {
-  // Lấy danh sách nguồn từ dữ liệu + mapping sẵn có
-  const fromData = new Set(items.map(it => it.source || 'Unknown'));
-  const fromMap  = new Set(Object.keys(SOURCE_TYPE_BY_SOURCE || {}));
-  const all = new Set([...fromData, ...fromMap]);
-
-  // Nhớ lựa chọn cũ (nếu có)
-  const prev = sourceSelect.value;
-
-  // Dựng lại options
-  sourceSelect.innerHTML = '<option value="__all__">Tất cả nguồn</option>';
-  [...all].sort((a,b)=>a.localeCompare(b,'vi'))
-    .forEach(src=>{
-      const opt = document.createElement('option');
-      opt.value = src; opt.textContent = src;
-      sourceSelect.appendChild(opt);
-    });
-
-  // Khôi phục chọn cũ nếu còn hợp lệ; nếu không thì xét theo state.selectedSources
-  if (prev && [...all].includes(prev)) sourceSelect.value = prev;
-  else if (state.selectedSources.size === 1) {
-    sourceSelect.value = [...state.selectedSources][0];
-  } else {
-    sourceSelect.value = '__all__';
-  }
-}
-
-sourceSelect.addEventListener('change', ()=>{
-  const v = sourceSelect.value;
-  if (v === '__all__') {
-    state.selectedSources.clear();            // nghĩa là hiển thị tất cả
-  } else {
-    state.selectedSources = new Set([v]);     // lọc theo 1 nguồn
-  }
-  localStorage.setItem('srcSet', JSON.stringify([...state.selectedSources]));
-  runFilter();
-});
-
-// --- SETTINGS (persisted) ---
-function applyTitleSize(px){
-  const v = (Number(px)||11) + 'px';
-  document.documentElement.style.setProperty('--title-size', v);
-}
-
-function loadSettings(){
-  const p = getPrefs();
-  // theme already handled by existing init; keep it in sync in UI
-  const theme = (p.theme === 'light' || p.theme === 'dark') ? p.theme : themeState;
-  // title size
-  const tsize = Number(p.titleSize || 11);
-  applyTitleSize(tsize);
-
-  const vm = localStorage.getItem('viewMode') || state.viewMode || 'rich';
-  syncViewModeToggle(vm);
-
-  // reflect theme buttons
-  setThemeButtons(theme);
-}
-
-function setThemeButtons(theme){
-  // visually you could highlight current, but we just keep simple
-  // no-op UI state for now
-}
-
-function openSettings(){
-  loadSettings();
-  settingsBackdrop.classList.add('show');
-  settingsBackdrop.setAttribute('aria-hidden', 'false');
-}
-
-function closeSettings(){
-  settingsBackdrop.classList.remove('show');
-  settingsBackdrop.setAttribute('aria-hidden', 'true');
-}
-
-// Open/close
-btnSettings.addEventListener('click', openSettings);
-btnCloseSettings.addEventListener('click', closeSettings);
-settingsBackdrop.addEventListener('click', (e)=>{
-  if (e.target === settingsBackdrop) closeSettings();
-});
-document.addEventListener('keydown', (e)=>{
-  if (e.key === 'Escape' && settingsBackdrop.classList.contains('show')) closeSettings();
-});
-
-// Theme buttons
-optLight.addEventListener('click', ()=>{
-  themeState = 'light';
-  applyTheme(themeState);
-  refreshThemeBtn();                      // your existing header moon/sun
-  savePrefs({ ...getPrefs(), theme: themeState });
-});
-optDark.addEventListener('click', ()=>{
-  themeState = 'dark';
-  applyTheme(themeState);
-  refreshThemeBtn();
-  savePrefs({ ...getPrefs(), theme: themeState });
-});
-
-// Save (persist titleSize explicitly; theme already stored when clicked)
-btnSaveSettings.addEventListener('click', ()=>{
-  const p = getPrefs();
-  const newPrefs = { ...p, titleSize: currentFontSize };
-  savePrefs(newPrefs);
-  closeSettings();
-});
-
-// Reset to defaults
-btnResetSettings.addEventListener('click', ()=>{
-  themeState = 'dark';
-  applyTheme(themeState);
-  refreshThemeBtn();
-  const p = getPrefs();
-  savePrefs({ ...p, theme: 'dark'});
-
-  updateFontDisplay();
-
-  viewModeSel.value = 'rich';
-  viewModeSel.dispatchEvent(new Event('change'));
-  syncViewModeToggle('rich');
-});
-
-function applyTitleSize(px){
-  const v = (Number(px)||11) + 'px';
-  document.documentElement.style.setProperty('--title-size', v);
-}
-
-function updateFontDisplay(){
-  titleSizeVal.textContent = currentFontSize;
-  applyTitleSize(currentFontSize);
-}
-
-btnFontMinus.addEventListener('click', ()=>{
-  if (currentFontSize > 10){
-    currentFontSize--;
-    updateFontDisplay();
-  }
-});
-
-btnFontPlus.addEventListener('click', ()=>{
-  if (currentFontSize < 18){
-    currentFontSize++;
-    updateFontDisplay();
-  }
-});
-
-function syncViewModeToggle(mode){
-  viewModeToggle.checked = (mode === 'compact');
-}
-
-viewModeToggle.addEventListener('change', ()=>{
-  const newMode = viewModeToggle.checked ? 'compact' : 'rich';
-  if (viewModeSel.value !== newMode){
-    viewModeSel.value = newMode;
-    viewModeSel.dispatchEvent(new Event('change'));
-  }
-});
-
-function highlightTextDiacritics(text, query){
-  if (!query) return escapeHTML(text);
-
-  const normText = removeDiacritics(text.toLowerCase());
-  const normQuery = removeDiacritics(query.toLowerCase());
-  if (!normQuery) return escapeHTML(text);
-
-  let result = "";
-  let i = 0;
-
-  while (i < text.length){
-    // take slice in normalized text with same length as query
-    const sub = normText.slice(i, i + normQuery.length);
-    if (sub === normQuery){
-      // match found → wrap original text substring
-      const originalSlice = escapeHTML(text.slice(i, i + normQuery.length));
-      result += `<mark class="search-hit">${originalSlice}</mark>`;
-      i += normQuery.length;
-    } else {
-      // no match → just output this char
-      result += escapeHTML(text[i]);
-      i++;
-    }
-  }
-
-  return result;
-}
+const sidebar = document.getElementById('sidebar');
+
+btnToggleSidebar.onclick = () => {
+  document.body.classList.toggle('sidebar-collapsed');
+  localStorage.setItem('sidebar-collapsed', document.body.classList.contains('sidebar-collapsed'));
+};
+
+btnToggleQV.onclick = () => {
+  document.body.classList.toggle('qv-collapsed');
+  localStorage.setItem('qv-collapsed', document.body.classList.contains('qv-collapsed'));
+};
+
+const toggleSidebar = (on) => {
+  sidebar.classList.toggle('open', on);
+  sidebarOverlay.style.display = on ? 'block' : 'none';
+};
+btnMenu.onclick = (e) => { e.stopPropagation(); toggleSidebar(true); };
+sidebarOverlay.onclick = () => toggleSidebar(false);
+
+btnTheme.onclick = () => {
+  const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+  btnTheme.innerHTML = `<i class="fa-solid fa-${next === 'dark' ? 'moon' : 'sun'}"></i> Appearance`;
+};
 
 // ==================== BOOT ====================
-loadIndex();
+async function boot() {
+  const theme = localStorage.getItem('theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', theme);
+  btnTheme.innerHTML = `<i class="fa-solid fa-${theme === 'dark' ? 'moon' : 'sun'}"></i> Appearance`;
+  if (localStorage.getItem('sidebar-collapsed') === 'true') document.body.classList.add('sidebar-collapsed');
+  if (localStorage.getItem('qv-collapsed') === 'true') document.body.classList.add('qv-collapsed');
+
+  await loadSymbols();
+  const idx = await fetchJSON('news/index.json');
+  if (idx) { state.dates = idx.dates || []; await loadNextDate(); renderBatch(); }
+  
+  const ob = new IntersectionObserver(es => { if (es[0].isIntersecting && !state.isLoading) renderBatch(); }, { rootMargin: '800px' });
+  ob.observe(loader);
+}
+boot();
 </script>
 </body>
 </html>
