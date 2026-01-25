@@ -93,10 +93,14 @@ Trả về JSON schema:
             "updated": datetime.datetime.now().isoformat()
         }
         
+        with open(os.path.join(news_dir, f"digest-{today}.json"), "w", encoding="utf-8") as f:
+            json.dump(digest_data, f, ensure_ascii=False, separators=(",", ":"))
+        
+        # Also save as daily.json (or keep digest.json) for the "Latest" pointer
         with open(os.path.join(news_dir, "digest.json"), "w", encoding="utf-8") as f:
             json.dump(digest_data, f, ensure_ascii=False, separators=(",", ":"))
             
-        print("Structured daily digest with links generated.")
+        print(f"Structured daily digest generated: digest-{today}.json and digest.json")
     except Exception as e:
         print(f"Error generating digest: {e}")
 
