@@ -1,15 +1,13 @@
-name: fetch-news
+name: daily-ai-digest
 
 on:
   schedule:
-    # Every 15 minutes between 01:00 and 08:59 UTC (08:00–15:59 VN)
-    - cron: "*/15 1-8 * * *"
-    # Every 1 hour for the rest of the day
-    - cron: "0 9-23,0 * * *"
+    # 6 AM Vietnam (23:00 UTC)
+    - cron: "0 23 * * *"
   workflow_dispatch:
 
 jobs:
-  fetch:
+  ai-digest:
     runs-on: ubuntu-latest
     environment: github-pages
     permissions:
@@ -21,20 +19,21 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11" # modern Python; native zoneinfo
+          python-version: "3.11"
 
       - name: Install deps
         run: pip install -r requirements.txt
 
-      - name: Run crawler
+      - name: Run crawler (Fresh morning catch-up)
         run: python app.py
 
-      - name: Ensure output dir
-        run: mkdir -p docs/news
+      - name: AI Synthesis (Local Clustering)
+        run: python scripts/cluster_news.py
 
-      - name: Retention (30 days)
-        run: |
-          find docs/news -type f -name "*.json" -mtime +30 -print -delete || true
+      - name: AI Morning Digest
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: python scripts/daily_digest.py
 
       - name: Commit & push if changed
         run: |
@@ -42,7 +41,7 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git add docs/news/*.json
-            git commit -m "bot update news json"
+            git commit -m "bot: daily ai digest update"
             git push
           else
             echo "No changes."
