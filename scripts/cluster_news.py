@@ -5,6 +5,13 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from openai import OpenAI
 
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    from backports.zoneinfo import ZoneInfo
+
+TIMEZONE = ZoneInfo("Asia/Ho_Chi_Minh")
+
 def get_ai_summary(master_title, cluster_items, client):
     """Generate a synthesized summary for a cluster of news using LLM."""
     if not client: return None

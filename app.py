@@ -38,7 +38,7 @@ def parse_ts(entry: Dict[str, Any]) -> datetime:
                 return datetime(*st[:6], tzinfo=timezone.utc)
             except Exception:
                 pass
-    return datetime.now(timezone.utc)
+    return datetime.now(TIMEZONE)
 
 def image_from_description(desc: Optional[str]) -> Optional[str]:
     if not desc:

@@ -1,11 +1,15 @@
-#!/usr/bin/env python3
-import os, json, glob, datetime, re
-from openai import OpenAI
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    from backports.zoneinfo import ZoneInfo
+
+TIMEZONE = ZoneInfo("Asia/Ho_Chi_Minh")
 
 def generate_digest(news_dir="docs/news"):
-    # Get today's and yesterday's files
-    today = datetime.datetime.now().strftime("%m-%d-%Y")
-    yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime("%m-%d-%Y")
+    # Get today's and yesterday's files in Vietnam Time
+    now = datetime.datetime.now(TIMEZONE)
+    today = now.strftime("%m-%d-%Y")
+    yesterday = (now - datetime.timedelta(days=1)).strftime("%m-%d-%Y")
     
     selected_files = []
     for d in [today, yesterday]:
@@ -43,11 +47,15 @@ def generate_digest(news_dir="docs/news"):
         api_key=api_key,
     )
     
-    prompt = f"""Bạn là một biên tập viên tin tức AI chuyên nghiệp. Hãy phân tích các tin tức sau và tạo một bản tin "Catch up" (Dòng thời gian sự kiện) dưới định dạng JSON.
+    # Vietnamese display date for prompt
+    display_date = now.strftime("%d/%m/%Y")
+
+    prompt = f"""Bạn là một biên tập viên tin tức AI chuyên nghiệp. Hôm nay là ngày {display_date}. 
+Hãy phân tích các tin tức sau và tạo một bản tin "Catch up" (Dòng thời gian sự kiện) dưới định dạng JSON.
 
 Yêu cầu nội dung:
-1. "summary": Một câu tóm tắt cực ngắn (khoảng 20 từ) bao quát toàn bộ ngày.
-2. "timeline": Một danh sách gồm 4-6 sự kiện quan trọng nhất. Mỗi sự kiện có:
+1. "summary": Một câu tóm tắt cực ngắn (khoảng 20 từ) bao quát toàn bộ ngày {display_date}.
+2. "timeline": Một danh sách gồm 4-6 sự kiện quan trọng nhất của ngày hôm nay ({display_date}). Mỗi sự kiện có:
    - "time": Mốc thời gian hoặc thứ tự (VD: "Sáng nay", "10:00", "Tiêu điểm").
    - "title": Tiêu đề ngắn gọn của sự kiện.
    - "content": Nội dung chi tiết sự kiện (1-2 câu). MUST include key facts.
@@ -56,6 +64,7 @@ Yêu cầu nội dung:
 Yêu cầu kỹ thuật:
 - Ngôn ngữ: Tiếng Việt.
 - Sử dụng chính xác đường dẫn (Link) từ dữ liệu đầu vào làm nguồn trích dẫn.
+- Tuyệt đối không tự bịa ra ngày tháng khác ngày {display_date}.
 - Trả về DUY NHẤT định dạng JSON.
 
 Danh sách tin tức thô:
@@ -90,7 +99,7 @@ Trả về JSON schema:
             "date": today,
             "summary": result.get("summary", ""),
             "timeline": result.get("timeline", []),
-            "updated": datetime.datetime.now().isoformat()
+            "updated": now.isoformat()
         }
         
         with open(os.path.join(news_dir, f"digest-{today}.json"), "w", encoding="utf-8") as f:
