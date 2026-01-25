@@ -10,6 +10,8 @@ jobs:
   ai-digest:
     runs-on: ubuntu-latest
     environment: github-pages
+    env:
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
     permissions:
       contents: write
     steps:
@@ -24,15 +26,10 @@ jobs:
       - name: Install deps
         run: pip install -r requirements.txt
 
-      - name: Run crawler (Fresh morning catch-up)
-        run: python app.py
-
       - name: AI Synthesis (Local Clustering)
         run: python scripts/cluster_news.py
 
       - name: AI Morning Digest
-        env:
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: python scripts/daily_digest.py
 
       - name: Commit & push if changed
