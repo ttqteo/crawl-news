@@ -93,7 +93,7 @@ Trả về JSON schema:
 
     try:
         response = client.chat.completions.create(
-            model="xiaomi/mimo-v2-flash:free", 
+            model="google/gemini-2.5-flash-lite", 
             messages=[{"role": "user", "content": prompt}],
             response_format={ "type": "json_object" }
         )
