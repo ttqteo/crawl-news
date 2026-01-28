@@ -36,7 +36,7 @@ Yêu cầu:
 
     try:
         response = client.chat.completions.create(
-            model="xiaomi/mimo-v2-flash:free",
+            model="meta-llama/llama-3.3-70b-instruct",
             messages=[{"role": "user", "content": prompt}],
         )
         return response.choices[0].message.content.strip()
