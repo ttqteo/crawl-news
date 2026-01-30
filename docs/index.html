@@ -862,6 +862,16 @@
   }
   .toggle-compact input:checked + .toggle-switch { background: var(--accent); }
   .toggle-compact input:checked + .toggle-switch::after { transform: translateX(14px); }
+
+  .published-time-compact { display: none; }
+  .compact-mode .published-time-compact {
+    display: block;
+    font-size: 11px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    margin-left: auto;
+    font-weight: 500;
+  }
 </style>
 </head>
 <body>
@@ -1048,6 +1058,22 @@ function getRelativeTime(ts) {
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days} ngày trước`;
   return new Date(ts).toLocaleDateString('vi-VN');
+}
+
+function getCompactRelativeTime(ts) {
+  const now = new Date();
+  const pub = new Date(ts);
+  const diff = now.getTime() - pub.getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Vừa xong';
+  if (mins < 60) return `${mins} phút trước`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} giờ trước`;
+  const hh = String(pub.getHours()).padStart(2, '0');
+  const mm = String(pub.getMinutes()).padStart(2, '0');
+  const d = String(pub.getDate()).padStart(2, '0');
+  const m = String(pub.getMonth() + 1).padStart(2, '0');
+  return `${hh}:${mm} ${d}/${m}`;
 }
 
 // ==================== ENGINE ====================
@@ -1273,6 +1299,7 @@ function renderCard(it, idx, type) {
             ${tags ? `<div style="display:flex; gap:4px; margin-left:8px;">${tags}</div>` : ''}
           </div>
         </div>
+        <span class="published-time-compact">${getCompactRelativeTime(it.published)}</span>
         <div class="card-actions">
           <button class="action-btn" title="Mở ở tab mới" onclick="event.stopPropagation(); window.open('${it.link}', '_blank')"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
         </div>
