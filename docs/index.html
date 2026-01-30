@@ -548,32 +548,68 @@
   .modal-overlay {
     position: fixed;
     inset: 0;
-    background: var(--bg);
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     z-index: 2000;
-    overflow-y: auto;
     display: none;
+    align-items: center;
+    justify-content: center;
     padding: 24px;
+    animation: fadeIn 0.3s ease;
   }
-  .modal-overlay.open { display: block; animation: slideUp 0.3s ease; }
-  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-  .modal-close {
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  
+  .modal-overlay.open { display: flex; }
+
+  .modal-container {
+    background: var(--bg);
+    width: 100%;
+    max-width: 680px;
+    max-height: 90vh;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+    animation: scaleUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes scaleUp { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+  .modal-header {
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
     position: sticky;
     top: 0;
-    z-index: 10;
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: 16px;
+    background: var(--bg);
+    z-index: 2;
   }
+
+  .modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 40px 40px 40px;
+  }
+
   .btn-close {
     background: var(--hover-bg);
     border: none;
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
-    color: var(--text);
+    color: var(--text-muted);
     cursor: pointer;
-    font-size: 16px;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
   }
+  .btn-close:hover { color: var(--text); background: var(--border); }
 
   .loading {
     display: flex;
@@ -583,6 +619,24 @@
 
   /* MOBILE */
   @media (max-width: 1100px) {
+    .modal-overlay {
+      background: var(--bg);
+      backdrop-filter: none;
+      padding: 0;
+      align-items: stretch;
+    }
+    .modal-container {
+      max-width: none;
+      max-height: 100vh;
+      height: 100vh;
+      border-radius: 0;
+      border: none;
+      box-shadow: none;
+      animation: slideUp 0.3s ease;
+    }
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    .modal-body { padding: 0 20px 40px 20px; }
+    .btn-close { width: 36px; height: 36px; font-size: 16px; }
     .sidebar { transform: translateX(-100%); width: 260px; }
     .sidebar.open { transform: translateX(0); }
     .app-container { margin-left: 0; display: block; width: 100%; }
@@ -956,8 +1010,10 @@
 </div>
 
 <div id="tlModal" class="modal-overlay">
-  <div class="modal-close"><button class="btn-close" id="btnCloseTL"><i class="fa-solid fa-xmark"></i></button></div>
-  <div id="tlContent"></div>
+  <div class="modal-container">
+    <div class="modal-header"><button class="btn-close" id="btnCloseTL"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-body" id="tlContent"></div>
+  </div>
 </div>
 
 <script>
@@ -1066,8 +1122,11 @@ async function loadDigest() {
 }
 
 function renderTimelineHtml(digest) {
-  if (digest.timeline && digest.timeline.length > 0) {
-    const events = digest.timeline.map(ev => {
+  if ((digest.highlights && digest.highlights.length > 0) || (digest.timeline && digest.timeline.length > 0)) {
+    const isHighlights = digest.highlights && digest.highlights.length > 0;
+    const items = isHighlights ? digest.highlights : digest.timeline;
+    
+    const events = items.map(ev => {
       const srcBadges = (ev.sources || []).map(s => {
         const name = typeof s === 'string' ? s : (s.name || 'Link');
         const link = typeof s === 'string' ? '#' : (s.link || '#');
@@ -1077,6 +1136,17 @@ function renderTimelineHtml(digest) {
           : `<span style="display:inline-block; width:14px; height:14px; border-radius:3px; background:var(--accent); color:white; font-size:8px; font-weight:700; text-align:center; line-height:14px; margin-right:4px; vertical-align:middle;">${(name||'?')[0]}</span>`;
         return `<a href="${link}" target="_blank" style="display:inline-flex; align-items:center; font-size:12px; background:var(--hover-bg); padding:4px 10px; border-radius:6px; margin-right:6px; margin-bottom:4px; border:1px solid var(--border); text-decoration:none; color:inherit; font-weight:500;">${logoHtml}${escapeHTML(name)}</a>`;
       }).join('');
+      
+      if (isHighlights) {
+        return `
+          <li style="margin-bottom: 24px; color: var(--text);">
+            <div style="font-size: 17px; font-weight: 600; margin-bottom: 6px;">${escapeHTML(ev.title)}</div>
+            <div style="font-size: 14px; color: var(--text-muted); line-height: 1.6; margin-bottom: 10px;">${escapeHTML(ev.content)}</div>
+            <div style="display:flex; flex-wrap:wrap; gap:4px;">${srcBadges}</div>
+          </li>
+        `;
+      }
+      
       return `
         <div class="timeline-item">
           <div class="timeline-dot"></div>
@@ -1087,11 +1157,12 @@ function renderTimelineHtml(digest) {
         </div>
       `;
     }).join('');
+
     return `
-      <div style="padding: 0 20px;">
-        <div style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:8px;">Timeline sự kiện</div>
-        <h2 style="font-size:22px; font-weight:700; margin-bottom:20px;">Tổng hợp 24h qua</h2>
-        <div class="timeline-wrap">${events}</div>
+      <div>
+        <div style="font-size:11px; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:1px; margin-bottom:12px;">${isHighlights ? 'Điểm tin quan trọng' : 'Timeline sự kiện'}</div>
+        <h2 style="font-size: 26px; font-weight: 700; margin-bottom: 24px; font-family: var(--font-serif);">${isHighlights ? 'Highlights' : 'Bản tin Catch up'}</h2>
+        ${isHighlights ? `<ul style="list-style-type: disc; padding-left: 20px; line-height: 1.6; color: var(--text-muted);">${events}</ul>` : `<div class="timeline-wrap">${events}</div>`}
       </div>
     `;
   }

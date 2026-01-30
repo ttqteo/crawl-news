@@ -58,20 +58,19 @@ def generate_digest(news_dir="docs/news"):
     display_date = now.strftime("%d/%m/%Y")
 
     prompt = f"""Bạn là một biên tập viên tin tức AI chuyên nghiệp. Hôm nay là ngày {display_date}. 
-Hãy phân tích các tin tức sau và tạo một bản tin "Catch up" (Dòng thời gian sự kiện) dưới định dạng JSON.
+Hãy phân tích các tin tức sau và tạo một bản tin "Catch up" (Tổng hợp các điểm tin quan trọng) dưới định dạng JSON.
 
 Yêu cầu nội dung:
 1. "summary": Một câu tóm tắt cực ngắn (khoảng 20 từ) bao quát toàn bộ ngày {display_date}.
-2. "timeline": Một danh sách gồm 4-6 sự kiện quan trọng nhất của ngày hôm nay ({display_date}). Mỗi sự kiện có:
-   - "time": Mốc thời gian hoặc thứ tự (VD: "Sáng nay", "10:00", "Tiêu điểm").
-   - "title": Tiêu đề ngắn gọn của sự kiện.
-   - "content": Nội dung chi tiết sự kiện (1-2 câu). MUST include key facts.
+2. "highlights": Một danh sách gồm 4-6 điểm tin quan trọng nhất của ngày hôm nay ({display_date}). Mỗi điểm tin có:
+   - "title": Tiêu đề ngắn gọn của điểm tin.
+   - "content": Nội dung chi tiết (1-2 câu). MUST include key facts.
    - "sources": Một danh sách các đối tượng nguồn tin {{"name": "Tên báo", "link": "đường dẫn"}}.
 
 Yêu cầu kỹ thuật:
 - Ngôn ngữ: Tiếng Việt.
 - Sử dụng chính xác đường dẫn (Link) từ dữ liệu đầu vào làm nguồn trích dẫn.
-- Tuyệt đối không tự bịa ra ngày tháng khác ngày {display_date}.
+- Tuyệt đối không tự bịa ra thông tin.
 - Trả về DUY NHẤT định dạng JSON.
 
 Danh sách tin tức thô:
@@ -80,9 +79,8 @@ Danh sách tin tức thô:
 Trả về JSON schema:
 {{
   "summary": "...",
-  "timeline": [
+  "highlights": [
     {{
-      "time": "...", 
       "title": "...", 
       "content": "...",
       "sources": [{{"name": "Tên báo", "link": "..."}}]
@@ -93,7 +91,7 @@ Trả về JSON schema:
 
     try:
         response = client.chat.completions.create(
-            model="meta-llama/llama-3.3-70b-instruct", 
+            model="deepseek/deepseek-chat", 
             messages=[{"role": "user", "content": prompt}],
             response_format={ "type": "json_object" }
         )
@@ -105,7 +103,7 @@ Trả về JSON schema:
         digest_data = {
             "date": today,
             "summary": result.get("summary", ""),
-            "timeline": result.get("timeline", []),
+            "highlights": result.get("highlights", []),
             "updated": now.isoformat()
         }
         

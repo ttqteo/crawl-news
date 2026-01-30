@@ -1,1 +1,75 @@
-{"date":"01-30-2026","summary":"Ngày 30/01/2026: Thị trường chứng khoán tăng, giá xăng lên sát 19.000 đồng","timeline":[{"time":"Sáng nay","title":"Eximbank báo lãi hơn 1,500 tỷ đồng","content":"Eximbank báo lãi hơn 1,500 tỷ đồng, ưu tiên dự phòng rủi ro trong giai đoạn chuyển đổi. Điều này cho thấy sựstable trong hoạt động kinh doanh của ngân hàng.","sources":[{"name":"Vietstock","link":"http://vietstock.vn/2026/01/eximbank-bao-lai-hon-1500-ty-dong-uu-tien-du-phong-rui-ro-trong-giai-doan-chuyen-doi-737-1397522.htm"}]},{"time":"10:00","title":"VN-Index tăng hơn 14 điểm","content":"VN-Index tăng hơn 14 điểm nhờ sự dẫn đầu của nhóm midcap. Điều này cho thấy sự phục hồi của thị trường chứng khoán.","sources":[{"name":"Người Quan Sát","link":"https://nguoiquansat.vn/nhom-midcap-but-pha-vn-index-tang-hon-14-diem-271791.html"}]},{"time":"Tiêu điểm","title":"Hòa Phát lãi gần 3,900 tỷ đồng trong quý 4","content":"Hòa Phát lãi gần 3,900 tỷ đồng trong quý 4, tăng 38% so với cùng kỳ năm trước. Điều này cho thấy sự tăng trưởng mạnh mẽ của công ty.","sources":[{"name":"Vietstock","link":"http://vietstock.vn/2026/01/hoa-phat-lai-gan-3900-ty-dong-trong-quy-4-tang-38-737-1397342.htm"}]},{"time":"Chiều nay","title":"Giá xăng lên sát 19.000 đồng một lít","content":"Giá xăng lên sát 19.000 đồng một lít, gây ảnh hưởng đến người tiêu dùng. Điều này cho thấy sự tăng trưởng của giá nhiên liệu.","sources":[{"name":"VnExpress","link":"https://vnexpress.net/gia-xang-len-sat-19-000-dong-mot-lit-5011483.html"}]},{"time":"Kết thúc ngày","title":"Tổ chức trong nước mạnh tay gom ròng hơn 800 tỷ","content":"Tổ chức trong nước mạnh tay gom ròng hơn 800 tỷ, cho thấy sự quan tâm của nhà đầu tư đến thị trường chứng khoán.","sources":[{"name":"VnEconomy","link":"https://vneconomy.vn/to-chuc-trong-nuoc-manh-tay-gom-rong-hon-800-ty.htm"}]},{"time":"Hôm nay","title":"Phát hiện mỏ dầu lớn nhất Đông Nam Á tại Việt Nam","content":"Phát hiện mỏ dầu lớn nhất Đông Nam Á tại Việt Nam trong hai thập kỷ qua, mở ra cơ hội cho ngành dầu khí.","sources":[{"name":"Markettimes","link":"https://markettimes.vn/phat-hien-mo-dau-lon-nhat-dong-nam-a-tai-viet-nam-trong-hai-thap-ky-qua-dai-dien-bo-cong-thuong-noi-gi-105633.html"}]}],"updated":"2026-01-30T17:37:28.765397+07:00"}
+{
+  "date": "01-30-2026",
+  "summary": "Ngày 30/01/2026 chứng kiến báo cáo lợi nhuận kỷ lục của các doanh nghiệp lớn, biến động mạnh trên thị trường tài chính và phát hiện mỏ dầu mới tại Việt Nam.",
+  "highlights": [
+    {
+      "title": "Vingroup lập kỷ lục lãi trước thuế tỷ USD",
+      "content": "Vingroup công bố lãi trước thuế đạt tỷ USD cùng doanh thu kỷ lục trong năm 2025, khẳng định vị thế dẫn đầu trong các lĩnh vực bất động sản, công nghệ và công nghiệp.",
+      "sources": [
+        {
+          "name": "Vietstock",
+          "link": "http://vietstock.vn/2026/01/vingroup-lap-ky-luc-doanh-thu-va-lai-rong-trong-nam-2025-737-1397556.htm"
+        },
+        {
+          "name": "VnExpress",
+          "link": "https://vnexpress.net/vingroup-lai-truoc-thue-ty-usd-nam-ngoai-5011975.html"
+        }
+      ]
+    },
+    {
+      "title": "Phát hiện mỏ dầu Hải Sư Vàng ngoài khơi Việt Nam",
+      "content": "Việt Nam công bố phát hiện mỏ dầu khí mới có trữ lượng lớn tại khu vực Hải Sư Vàng, dự kiến đóng góp quan trọng vào an ninh năng lượng quốc gia.",
+      "sources": [
+        {
+          "name": "VnExpress",
+          "link": "https://vnexpress.net/phat-hien-mo-dau-hai-su-vang-ngoai-khoi-viet-nam-5011564.html"
+        }
+      ]
+    },
+    {
+      "title": "Xây dựng đường biên giới Việt Nam - Lào",
+      "content": "Dự án xây dựng tuyến đường biên giới Việt - Lào được khởi động với 14 dự án nhà ở xã hội tại Đồng Nai, hướng đến phát triển kết cấu hạ tầng liên vùng.",
+      "sources": [
+        {
+          "name": "VnEconomy",
+          "link": "https://vneconomy.vn/xay-dung-duong-bien-gioi-viet-nam-lao.htm"
+        },
+        {
+          "name": "Markettimes",
+          "link": "https://markettimes.vn/nhan-chi-dao-cua-thu-tuong-him-lam-donacoop-d2d-se-khoi-cong-14-du-an-nha-o-xa-hoi-tai-dong-nai-ngay-trong-quy-i-2026-105677.html"
+        }
+      ]
+    },
+    {
+      "title": "Thế Giới Di Động báo lãi kỷ lục 2.000 tỷ/quý",
+      "content": "Thế Giới Di Động công bố lãi trước thuế hơn 2.000 tỷ đồng trong quý IV/2025, thiết lập mức lợi nhuận cao nhất từ trước đến nay trong ngành bán lẻ.",
+      "sources": [
+        {
+          "name": "Markettimes",
+          "link": "https://markettimes.vn/ky-luc-the-gioi-di-dong-bao-lai-hon-2-000-ty-trong-mot-quy-105770.html"
+        }
+      ]
+    },
+    {
+      "title": "Scandal Sago Food đưa thịt hết hạn vào trường học",
+      "content": "Sago Food bị điều tra nghi vấn cung cấp suất ăn không đảm bảo chất lượng, dấy lên lo ngại về an toàn thực phẩm trong trường học.",
+      "sources": [
+        {
+          "name": "Markettimes",
+          "link": "https://markettimes.vn/vu-sago-food-nghi-dua-thit-het-han-vao-truong-hoc-cong-ty-buon-xang-dau-bat-ngo-be-lai-sang-nau-suat-an-hoc-duong-chi-sau-5-thang-105680.html"
+        }
+      ]
+    },
+    {
+      "title": "Chứng khoán tăng thua xa vàng",
+      "content": "Tỷ lệ VN-Index/XAU xuống mức thấp nhất trong hơn 10 năm, phản ánh xu hướng dịch chuyển dòng tiền mạnh sang vàng giữa bối cảnh thị trường bất ổn.",
+      "sources": [
+        {
+          "name": "Markettimes",
+          "link": "https://markettimes.vn/chung-khoan-tang-thua-xa-vang-ty-le-vn-index-xau-xuong-thap-nhat-trong-hon-1-thap-ky-105683.html"
+        }
+      ]
+    }
+  ],
+  "updated": "2026-01-30T18:39:47.480429+07:00"
+}
