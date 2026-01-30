@@ -33,11 +33,15 @@ def build_index(base: str = "docs/news") -> int:
 
     dates = sorted(set(dates), key=parse_date, reverse=True)
 
+    # Collect digests
+    digest_files = glob.glob(os.path.join(BASE, "digest-*.json"))
+    digests = sorted(set(os.path.basename(f).replace("digest-", "").replace(".json", "") for f in digest_files), key=parse_date, reverse=True)
+
     # Write index.json
     with open(os.path.join(BASE, "index.json"), "w", encoding="utf-8") as out:
-        json.dump({"dates": dates}, out, ensure_ascii=False, separators=(",", ":"))
+        json.dump({"dates": dates, "digests": digests}, out, ensure_ascii=False, separators=(",", ":"))
 
-    print(f"Index built with {len(dates)} date(s).")
+    print(f"Index built with {len(dates)} date(s) and {len(digests)} digest(s).")
     return len(dates)
 
 

@@ -446,6 +446,10 @@
     padding: 10px 0;
     border-bottom: 1px solid var(--border);
   }
+  .trending-list {
+    display: flex;
+    flex-direction: column;
+  }
   .trending-item:last-child { border-bottom: none; }
   .trending-logo {
     width: 32px;
@@ -629,6 +633,181 @@
     font-size: 11px;
     font-weight: 600;
   }
+
+  /* COMPACT MODE */
+  .compact-mode #newsList { gap: 0; }
+  .compact-mode .card { 
+    flex-direction: column;
+    align-items: stretch;
+    padding: 0;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+  }
+  .compact-mode .card:last-child { border-bottom: none; }
+  
+  .compact-mode .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 0;
+    gap: 16px;
+  }
+  
+  .compact-mode .card-title { 
+    font-family: var(--font-sans); 
+    font-size: 15px; 
+    font-weight: 500; 
+    margin-bottom: 0; 
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .compact-mode .card.expanded .card-title {
+    white-space: normal;
+    overflow: visible;
+  }
+
+  .compact-mode .card-body {
+    display: none;
+    padding: 0 0 16px 0;
+    animation: slideDown 0.2s ease;
+  }
+  .compact-mode .card.expanded .card-body { display: block; }
+  
+  @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+  .compact-mode .card-summary { 
+    display: block; 
+    font-size: 14px; 
+    color: var(--text-muted); 
+    line-height: 1.6;
+    margin-bottom: 12px;
+  }
+  
+  .compact-mode .thumb-wrap, 
+  .compact-mode .card-meta-top, 
+  .compact-mode .published-time, 
+  .compact-mode .tag { display: none !important; }
+  
+  .compact-mode .card-actions { opacity: 1; margin-left: 0; }
+  .compact-mode .card-meta-bottom { margin-left: auto; gap: 0; }
+
+  .chevron { display: none; }
+  .compact-mode .chevron {
+    display: block;
+    color: var(--text-muted);
+    transition: transform 0.2s;
+    font-size: 12px;
+  }
+  .compact-mode .card.expanded .chevron { transform: rotate(180deg); }
+
+  /* STANDARD MODE FIXES */
+  .card-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .card-header { display: flex; flex-direction: column; width: 100%; gap: 12px; }
+  .compact-mode .card-header { flex-direction: row; gap: 12px; align-items: center; }
+  .compact-mode .card-row { display: flex; flex-direction: column; gap: 0; }
+  
+  .card-body { display: block; }
+  .compact-mode .card-body { display: none; padding-top: 4px; }
+  .compact-mode .card.expanded .card-body { display: block; }
+
+  .source-logo-compact { display: none; }
+  .compact-mode .source-logo-compact {
+    display: block;
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+    object-fit: cover;
+    flex-shrink: 0;
+  }
+
+  .source-placeholder-compact { display: none; }
+  .compact-mode .source-placeholder-compact {
+    display: flex;
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+    background: var(--accent);
+    color: white;
+    font-size: 10px;
+    font-weight: 700;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .chevron { display: none; }
+  .compact-mode .chevron {
+    display: block;
+    color: var(--text-muted);
+    transition: transform 0.2s;
+    font-size: 12px;
+  }
+  .compact-mode .card.expanded .chevron { transform: rotate(180deg); }
+
+  .digest-history-btn {
+    font-size: 12px;
+    color: var(--text-muted);
+    background: var(--hover-bg);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .digest-history-btn:hover { color: var(--text); border-color: var(--accent); }
+
+  .card-body .source-badge { display: none; }
+  .compact-mode .card-body .source-badge { display: inline-flex; }
+
+  .view-options {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-bottom: 16px;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  .toggle-compact {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .toggle-compact input { display: none; }
+  .toggle-switch {
+    width: 32px;
+    height: 18px;
+    background: var(--border);
+    border-radius: 9px;
+    position: relative;
+    transition: background 0.2s;
+  }
+  .toggle-switch::after {
+    content: "";
+    position: absolute;
+    left: 2px;
+    top: 2px;
+    width: 14px;
+    height: 14px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.2s;
+  }
+  .toggle-compact input:checked + .toggle-switch { background: var(--accent); }
+  .toggle-compact input:checked + .toggle-switch::after { transform: translateX(14px); }
 </style>
 </head>
 <body>
@@ -673,6 +852,15 @@
     </header>
 
     <div id="aiDigest" style="display:none;"></div>
+    
+    <div class="view-options">
+      <label class="toggle-compact">
+        <span>Chế độ thu gọn</span>
+        <input type="checkbox" id="chkCompact">
+        <div class="toggle-switch"></div>
+      </label>
+    </div>
+
     <div id="newsList"></div>
     <div id="loader" class="loading"><i class="fa-solid fa-circle-notch fa-spin" style="font-size: 22px; color: var(--accent)"></i></div>
   </main>
@@ -865,7 +1053,10 @@ async function loadDigest() {
       <div class="ai-digest" onclick="openTimeline()">
         <div class="ai-digest-header">
           <div class="ai-digest-label"><i class="fa-solid fa-sparkles"></i> Tổng hợp tin tức AI</div>
-          ${relative ? `<span class="ai-digest-time">${relative}</span>` : ''}
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button class="digest-history-btn" onclick="openDigestHistory(event)"><i class="fa-solid fa-clock-rotate-left"></i> Lịch sử</button>
+            ${relative ? `<span class="ai-digest-time">${relative}</span>` : ''}
+          </div>
         </div>
         <div class="ai-digest-content">${digest.summary || 'Click để xem tóm tắt diễn biến quan trọng trong ngày.'}</div>
       </div>
@@ -913,11 +1104,55 @@ function renderTimelineHtml(digest) {
   `;
 }
 
-function openTimeline() {
-  if (!state.currentDigest) return;
-  const html = renderTimelineHtml(state.currentDigest);
-  document.getElementById('tlContent').innerHTML = html;
+function openTimeline(digest, showBack = false) {
+  const d = digest || state.currentDigest;
+  if (!d) return;
+  const backHtml = showBack ? `<button class="digest-history-btn" style="margin-bottom:12px;" onclick="openDigestHistory()"><i class="fa-solid fa-arrow-left"></i> Quay lại lịch sử</button>` : '';
+  const html = renderTimelineHtml(d);
+  document.getElementById('tlContent').innerHTML = `${backHtml}${html}`;
   document.getElementById('tlModal').classList.add('open');
+}
+
+async function openDigestHistory(e) {
+  if (e) e.stopPropagation();
+  const modal = document.getElementById('tlModal');
+  const content = document.getElementById('tlContent');
+  
+  content.innerHTML = '<div class="loading"><i class="fa-solid fa-spinner fa-spin"></i> Đang tải...</div>';
+  modal.classList.add('open');
+
+  const index = await fetchJSON('news/index.json');
+  if (!index || !index.digests || index.digests.length === 0) {
+    content.innerHTML = '<div style="padding:40px; text-align:center; color:var(--text-muted);">Không tìm thấy dữ liệu lịch sử.</div>';
+    return;
+  }
+
+  const list = index.digests.map(d => {
+    return `<div class="trending-item" style="cursor:pointer; padding: 12px;" onclick="viewPastDigest('${d}')">
+      <div class="trending-logo" style="background:var(--hover-bg); color:var(--accent); font-size:14px; display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:50%;"><i class="fa-solid fa-sparkles"></i></div>
+      <div class="trending-info" style="flex:1;">
+        <div class="trending-name" style="font-weight:600;">Bản tin ngày ${d}</div>
+        <div style="font-size:11px; color:var(--text-muted);">Nhấn để xem tóm tắt</div>
+      </div>
+      <i class="fa-solid fa-chevron-right" style="font-size:10px; color:var(--text-muted)"></i>
+    </div>`;
+  }).join('');
+
+  content.innerHTML = `
+    <div style="padding: 10px 20px;">
+      <h2 style="font-size:20px; font-weight:700; margin-bottom:16px;">Lịch sử AI Digest</h2>
+      <div class="trending-list">${list}</div>
+    </div>
+  `;
+}
+
+async function viewPastDigest(date) {
+  const digest = await fetchJSON(`news/digest-${date}.json`);
+  if (digest) {
+    openTimeline(digest, true);
+  } else {
+    alert('Không thể tải bản tin này. Vui lòng thử lại sau.');
+  }
 }
 
 function renderCard(it, idx, type) {
@@ -926,6 +1161,12 @@ function renderCard(it, idx, type) {
   const tags = findSymbols(it).slice(0, 3).map(s => `<span class="tag">${s}</span>`).join('');
   
   const sources = it.sources || [{ name: it.source, link: it.link }];
+  const mainSource = sources[0];
+  const sourceSfx = SOURCE_LOGOS[mainSource.name];
+  const compactLogo = sourceSfx 
+    ? `<img src="assets/images/${sourceSfx}.png" class="source-logo-compact">`
+    : `<div class="source-placeholder-compact">${(mainSource.name||'?')[0]}</div>`;
+
   const sourceIcons = sources.slice(0, 3).map(s => {
     const sfx = SOURCE_LOGOS[s.name];
     if (sfx) return `<img src="assets/images/${sfx}.png" title="${escapeHTML(s.name)}">`;
@@ -935,24 +1176,41 @@ function renderCard(it, idx, type) {
   const el = document.createElement('article');
   el.className = `card ${isHero ? 'card-hero' : 'card-grid'}`;
   if (isHero && Math.floor(idx / 4) % 2 === 1) el.classList.add('reverse');
-  el.onclick = () => window.open(it.link, '_blank');
+  
+  el.onclick = (e) => {
+    if (document.body.classList.contains('compact-mode')) {
+      el.classList.toggle('expanded');
+    } else {
+      window.open(it.link, '_blank');
+    }
+  };
 
   const cardSummary = it.ai_summary || it.summary || '';
 
   el.innerHTML = `
-    <div class="card-content">
-      <div class="card-meta-top">
-        <div class="source-icons">${sourceIcons}</div>
-        <span class="source-count">${sources.length > 1 ? `${sources.length} nguồn` : escapeHTML(it.source)}</span>
-      </div>
-      <h3 class="card-title">${escapeHTML(it.title)}</h3>
-      <p class="card-summary">${escapeHTML(cardSummary)}</p>
-      <div class="card-meta-bottom">
-        <span class="published-time"><i class="fa-regular fa-clock"></i> ${time}</span>
-        ${tags ? `<div style="display:flex; gap:4px; margin-left:8px;">${tags}</div>` : ''}
+    <div class="card-main">
+      <div class="card-header">
+        ${compactLogo}
+        <div class="card-content" style="flex:1; min-width: 0;">
+          <div class="card-meta-top">
+            <div class="source-icons">${sourceIcons}</div>
+            <span class="source-count">${sources.length > 1 ? `${sources.length} nguồn` : escapeHTML(it.source)}</span>
+          </div>
+          <h3 class="card-title">${escapeHTML(it.title)}</h3>
+          <div class="card-meta-bottom">
+            <span class="published-time"><i class="fa-regular fa-clock"></i> ${time}</span>
+            ${tags ? `<div style="display:flex; gap:4px; margin-left:8px;">${tags}</div>` : ''}
+          </div>
+        </div>
         <div class="card-actions">
-          <button class="action-btn"><i class="fa-regular fa-heart"></i></button>
-          <button class="action-btn"><i class="fa-solid fa-ellipsis"></i></button>
+          <button class="action-btn" title="Mở ở tab mới" onclick="event.stopPropagation(); window.open('${it.link}', '_blank')"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
+        </div>
+        <i class="fa-solid fa-chevron-down chevron"></i>
+      </div>
+      <div class="card-body">
+        <p class="card-summary">${escapeHTML(cardSummary)}</p>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <span class="tag source-badge" style="background:var(--accent); color:white;">${escapeHTML(it.source)} ${sources.length > 1 ? `+${sources.length-1}` : ''}</span>
         </div>
       </div>
     </div>
@@ -1015,7 +1273,7 @@ btnToggleSidebar.onclick = () => {
   localStorage.setItem('sidebar-collapsed', document.body.classList.contains('sidebar-collapsed'));
 };
 
-btnCloseTL.onclick = () => tlModal.classList.remove('open');
+btnCloseTL.onclick = () => document.getElementById('tlModal').classList.remove('open');
 
 const toggleSidebar = (on) => {
   sidebar.classList.toggle('open', on);
@@ -1036,7 +1294,19 @@ async function boot() {
   const theme = localStorage.getItem('theme') || 'dark';
   document.documentElement.setAttribute('data-theme', theme);
   btnTheme.innerHTML = `<i class="fa-solid fa-${theme === 'dark' ? 'moon' : 'sun'}"></i> Appearance`;
+  
   if (localStorage.getItem('sidebar-collapsed') === 'true') document.body.classList.add('sidebar-collapsed');
+
+  const isCompact = localStorage.getItem('compact-mode') === 'true';
+  const chkCompact = document.getElementById('chkCompact');
+  chkCompact.checked = isCompact;
+  if (isCompact) document.body.classList.add('compact-mode');
+
+  chkCompact.onchange = (e) => {
+    const active = e.target.checked;
+    document.body.classList.toggle('compact-mode', active);
+    localStorage.setItem('compact-mode', active);
+  };
 
   await loadSymbols();
   await loadDigest();
