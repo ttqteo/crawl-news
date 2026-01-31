@@ -36,8 +36,9 @@ Yêu cầu:
 
     try:
         response = client.chat.completions.create(
-            model="meta-llama/llama-3.3-70b-instruct",
+            model="deepseek/deepseek-r1-0528:free",
             messages=[{"role": "user", "content": prompt}],
+            max_tokens=2048
         )
         return response.choices[0].message.content.strip()
     except Exception as e:

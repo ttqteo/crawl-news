@@ -91,9 +91,10 @@ Trả về JSON schema:
 
     try:
         response = client.chat.completions.create(
-            model="deepseek/deepseek-chat", 
+            model="deepseek/deepseek-r1-0528:free", 
             messages=[{"role": "user", "content": prompt}],
-            response_format={ "type": "json_object" }
+            response_format={ "type": "json_object" },
+            max_tokens=4096
         )
         raw_content = response.choices[0].message.content
         # Clean potential markdown block
