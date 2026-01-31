@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import os, json, glob
+import os, json, glob, re, yaml
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -12,7 +12,7 @@ except ImportError:
 
 TIMEZONE = ZoneInfo("Asia/Ho_Chi_Minh")
 
-def get_ai_summary(master_title, cluster_items, client):
+def get_ai_summary(master_title, cluster_items, client, ai_cfg):
     """Generate a synthesized summary for a cluster of news using LLM."""
     if not client: return None
     
@@ -34,13 +34,26 @@ Yêu cầu:
 4. Văn phong báo chí hiện đại.
 """
 
+    ai_model = ai_cfg.get("model", "deepseek/deepseek-r1-0528")
+    max_tokens = ai_cfg.get("max_tokens_cluster", 2000)
+
     try:
         response = client.chat.completions.create(
-            model="deepseek/deepseek-r1-0528:free",
+            model=ai_model,
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=2048
+            max_tokens=max_tokens
         )
-        return response.choices[0].message.content.strip()
+        
+        if not response or not hasattr(response, 'choices') or not response.choices:
+            return None
+            
+        raw_content = response.choices[0].message.content
+        if not raw_content:
+            return None
+            
+        # Strip reasoning block if present (for R1 models)
+        clean_content = re.sub(r'<think>.*?</think>', '', raw_content, flags=re.DOTALL).strip()
+        return clean_content
     except Exception as e:
         print(f"  AI Summary Error: {e}")
         return None
@@ -49,6 +62,11 @@ def cluster_news(news_dir="docs/news", threshold=0.75):
     files = glob.glob(os.path.join(news_dir, "*.json"))
     files = [f for f in files if "index.json" not in f and "digest" not in f]
     
+    # Load AI config
+    with open("config.yaml", "r", encoding="utf-8") as f:
+        config = yaml.safe_load(f) or {}
+    ai_cfg = config.get("ai", {})
+
     # Initialize OpenAI client for OpenRouter
     api_key = os.environ.get("OPENROUTER_API_KEY")
     client = None
@@ -104,8 +122,11 @@ def cluster_news(news_dir="docs/news", threshold=0.75):
                 
                 # If hot story (multiple sources), call AI
                 if len(sources) > 1 and client:
-                    print(f"  Synthesizing cluster: {master['title'][:50]}... ({len(sources)} sources)")
-                    master["ai_summary"] = get_ai_summary(master["title"], cluster_items_data, client)
+                    if master.get("ai_summary"):
+                        print(f"  Skipping cluster (already summarized): {master['title'][:50]}...")
+                    else:
+                        print(f"  Synthesizing cluster: {master['title'][:50]}... ({len(sources)} sources)")
+                        master["ai_summary"] = get_ai_summary(master["title"], cluster_items_data, client, ai_cfg)
                 
                 final_items[master["item_id"]] = master
             items = list(final_items.values())

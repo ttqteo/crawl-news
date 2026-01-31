@@ -2,6 +2,7 @@ import datetime
 import os
 import json
 import re
+import yaml
 
 from openai import OpenAI
 
@@ -89,16 +90,34 @@ Trả về JSON schema:
 }}
 """
 
+    # Load AI config
+    with open("config.yaml", "r", encoding="utf-8") as f:
+        config = yaml.safe_load(f) or {}
+    ai_cfg = config.get("ai", {})
+    ai_model = ai_cfg.get("model", "deepseek/deepseek-r1-0528")
+    max_tokens = ai_cfg.get("max_tokens_digest", 4000)
+
     try:
         response = client.chat.completions.create(
-            model="deepseek/deepseek-r1-0528:free", 
+            model=ai_model, 
             messages=[{"role": "user", "content": prompt}],
-            response_format={ "type": "json_object" },
-            max_tokens=4096
+            max_tokens=max_tokens
         )
+        
+        if not response or not hasattr(response, 'choices') or not response.choices:
+            print("Error: No valid choices returned from API.")
+            return
+
         raw_content = response.choices[0].message.content
+        if not raw_content:
+            print("Error: No content returned from API.")
+            return
+
+        # Strip reasoning block if present (for R1 models)
+        clean_content = re.sub(r'<think>.*?</think>', '', raw_content, flags=re.DOTALL).strip()
+        
         # Clean potential markdown block
-        json_str = re.sub(r'```json\s*|\s*```', '', raw_content).strip()
+        json_str = re.sub(r'```json\s*|\s*```', '', clean_content).strip()
         result = json.loads(json_str)
         
         digest_data = {
